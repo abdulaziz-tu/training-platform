@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة التدريب الميداني التعاوني</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+
+<!-- ══════════════════════════════════════════
+     FIREBASE — ضع إعداداتك هنا
+══════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+           createUserWithEmailAndPassword }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where,
+           updateDoc, addDoc, deleteDoc, onSnapshot, orderBy, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBvEUvo4angxWP0hzt26dMhrN8EBYQOgG4",
+  authDomain: "training-platform-9d324.firebaseapp.com",
+  projectId: "training-platform-9d324",
+  storageBucket: "training-platform-9d324.firebasestorage.app",
+  messagingSenderId: "40832017610",
+  appId: "1:40832017610:web:0ae192093c490e8ebc0033",
+  measurementId: "G-300T413MFH"
+};
+
+  let FIREBASE_READY = false;
+  let _auth, _db;
+  try {
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      const app = initializeApp(firebaseConfig);
+      _auth = getAuth(app); _db = getFirestore(app);
+      FIREBASE_READY = true;
+    }
+  } catch(e){ console.error(e); }
+
+  // Secondary app to create users without logging out supervisor
+  let _secondaryApp, _secondaryAuth;
+  try {
+    if(FIREBASE_READY){
+      _secondaryApp = initializeApp(firebaseConfig, "secondary");
+      _secondaryAuth = getAuth(_secondaryApp);
+    }
+  } catch(e){}
+
+  window.FB = {
+    ready: FIREBASE_READY, auth: _auth, db: _db,
+    login:  (e,p)=>signInWithEmailAndPassword(_auth,e,p),
+    logout: ()=>signOut(_auth),
+    getDoc: (path)=>getDoc(doc(_db,...path.split('/'))),
+    setDoc: (path,data)=>setDoc(doc(_db,...path.split('/')),{...data,createdAt:serverTimestamp()}),
+    updateDoc: (path,data)=>updateDoc(doc(_db,...path.split('/')),{...data,updatedAt:serverTimestamp()}),
+    deleteDoc: (path)=>deleteDoc(doc(_db,...path.split('/'))),
+    addMessage: (convId,msg)=>addDoc(collection(_db,'conversations',convId,'messages'),{...msg,createdAt:serverTimestamp()}),
+    watchMessages: (convId,cb)=>onSnapshot(query(collection(_db,'conversations',convId,'messages'),orderBy('createdAt')),snap=>{cb(snap.docs.map(d=>({id:d.id,...d.data()})));}),
+    getAllUsers: async()=>{ const snap=await getDocs(collection(_db,'users')); return snap.docs.map(d=>({id:d.id,...d.data()})); },
+    // Create user using secondary app so supervisor stays logged in
+    createUser: async(email,password,userData)=>{
+      const {user} = await createUserWithEmailAndPassword(_secondaryAuth, email, password);
+      await setDoc(doc(_db,'users',user.uid), {...userData, createdAt:serverTimestamp()});
+      await signOut(_secondaryAuth);
+      return user.uid;
+    },
+  };
+
+  if(FIREBASE_READY){
+    onAuthStateChanged(_auth, async user=>{
+      if(user){
+        const ud=await window.FB.getDoc(`users/${user.uid}`);
+        if(ud.exists()){window.APP_USER={uid:user.uid,...ud.data()};navigateToDashboard(ud.data().role);}
+      }
+    });
+  }
+</script>
+
+<style>
+:root{
+  --purple:#6B4DC4;--purple-dark:#5239A8;--purple-light:#EDE8F8;
+  --pink:#C0467A;--blue:#4A6FD4;--green:#3D9B5A;
+  --bg:#ECEAF4;--white:#fff;--text:#1E1B2E;--muted:#7A7590;
+  --border:#E2DDF5;--shadow:0 4px 24px rgba(107,77,196,.10);--r:16px;--rs:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;direction:rtl;}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;}
+
+/* ── ROLES ── */
+#screen-roles{flex-direction:column;background:#D4D4D4;}
+.home-header{background:var(--purple);padding:28px 0;text-align:center;}
+.home-header h1{color:#fff;font-size:26px;font-weight:800;}
+.roles-area{flex:1;display:flex;align-items:center;justify-content:center;padding:60px 40px;gap:28px;flex-wrap:wrap;}
+.role-card{width:190px;height:190px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s;box-shadow:0 6px 24px rgba(0,0,0,.14);animation:popIn .5s ease both;}
+.role-card:nth-child(1){animation-delay:.1s;}.role-card:nth-child(2){animation-delay:.2s;}.role-card:nth-child(3){animation-delay:.3s;}
+@keyframes popIn{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
+.role-card:hover{transform:scale(1.07) translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.2);}
+.role-card.supervisor{background:var(--pink);}.role-card.faculty{background:var(--blue);}.role-card.students{background:var(--green);}
+.role-icon{font-size:44px;line-height:1;}.role-label{color:#fff;font-size:16px;font-weight:700;text-align:center;line-height:1.4;}
+
+/* ── LOGIN ── */
+#screen-login{align-items:center;justify-content:center;background:#CECECE;position:relative;overflow:hidden;}
+.login-back{position:absolute;top:20px;right:24px;background:rgba(255,255,255,.7);border:none;border-radius:50px;padding:8px 18px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;color:var(--purple);z-index:2;}
+.login-card{background:#fff;border-radius:24px;padding:48px 44px 52px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.14);position:relative;z-index:1;animation:slideUp .5s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+.login-logo{width:72px;height:72px;background:var(--purple);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;}
+.login-title{text-align:center;margin-bottom:32px;}
+.login-title h1{font-size:22px;font-weight:800;margin-bottom:6px;}
+.login-title p{font-size:14px;color:var(--muted);}
+.form-group{margin-bottom:18px;}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:8px;}
+.input-wrap{position:relative;}
+.input-wrap input{width:100%;padding:12px 16px 12px 44px;background:#FDF5F5;border:1.5px solid #EDD8D8;border-radius:var(--rs);font-family:'Tajawal',sans-serif;font-size:14px;direction:rtl;transition:border-color .2s;outline:none;}
+.input-wrap input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,77,196,.12);background:#fff;}
+.input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#C0B0D8;font-size:16px;}
+.btn-login{width:100%;padding:14px;background:var(--purple);color:#fff;border:none;border-radius:var(--rs);font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;box-shadow:0 4px 16px rgba(107,77,196,.30);}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;}
+.error-msg{color:#D94040;font-size:12.5px;text-align:center;margin-top:10px;min-height:18px;}
+.demo-hint{margin-top:14px;padding:10px;background:#F7F5FD;border-radius:10px;font-size:12px;color:var(--muted);text-align:center;border:1px solid var(--border);}
+
+/* ── SHARED DASHBOARD ── */
+.dash-screen{flex-direction:column;background:#F2F0FA;min-height:100vh;}
+.dash-topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 32px;height:66px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(107,77,196,.07);}
+.topbar-right{display:flex;align-items:center;gap:14px;}
+.dash-avatar{width:40px;height:40px;background:var(--purple);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0;}
+.topbar-title h2{font-size:15px;font-weight:700;}
+.topbar-title span{font-size:12.5px;color:var(--muted);}
+.topbar-actions{display:flex;align-items:center;gap:10px;}
+.btn-logout{display:flex;align-items:center;gap:6px;padding:8px 18px;background:#FDF5F5;border:1.5px solid #EDD8D8;border-radius:50px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;color:#C05050;cursor:pointer;}
+.btn-msg-topbar{display:flex;align-items:center;gap:6px;padding:8px 18px;background:var(--purple-light);border:1.5px solid var(--border);border-radius:50px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;color:var(--purple);cursor:pointer;position:relative;transition:background .2s;}
+.btn-msg-topbar:hover{background:#DDD5F5;}
+.msg-badge{position:absolute;top:-4px;left:-4px;width:18px;height:18px;background:#D94040;border-radius:50%;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.dash-body{padding:28px 32px;max-width:1100px;width:100%;margin:0 auto;}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{background:#fff;border-radius:var(--r);padding:20px;box-shadow:var(--shadow);animation:fadeUp .4s ease both;cursor:default;}
+.stat-card.clickable{cursor:pointer;transition:transform .2s,box-shadow .2s;}
+.stat-card.clickable:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(107,77,196,.18);}
+.stat-card.clickable.active-card{border:2px solid var(--purple);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.stat-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.stat-label{font-size:13px;color:var(--muted);font-weight:500;line-height:1.5;}
+.stat-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.stat-value{font-size:30px;font-weight:800;}
+
+/* ── Cards ── */
+.card{background:#fff;border-radius:var(--r);padding:24px;box-shadow:var(--shadow);margin-bottom:20px;animation:fadeUp .4s ease both;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.card-title{font-size:15px;font-weight:700;}
+.toggle-btn{background:none;border:2px solid var(--purple);cursor:pointer;padding:2px 10px;border-radius:8px;color:var(--purple);font-size:20px;font-weight:700;line-height:1.2;transition:all .2s;min-width:34px;text-align:center;}
+.toggle-btn:hover{background:var(--purple);color:#fff;}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+thead th{background:#F7F5FD;padding:14px 18px;text-align:right;font-size:12.5px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody tr{border-bottom:1px solid #F5F2FC;transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#FBF9FF;}
+tbody td{padding:13px 18px;text-align:right;font-weight:500;vertical-align:middle;}
+.badge{display:inline-block;padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700;}
+.badge-done{background:#D4EDDA;color:#1B6B35;}
+.badge-progress{background:#FFF3CD;color:#8B6300;}
+.badge-pending{background:#E8E8F0;color:#555;}
+.badge-approved{background:#D1ECF1;color:#0C5460;}
+.badge-declined{background:#F8D7DA;color:#721C24;}
+
+/* ── Student rows ── */
+.student-row{display:flex;align-items:center;gap:16px;padding:14px 8px;border-bottom:1px solid #F5F2FC;cursor:pointer;border-radius:10px;transition:background .15s;}
+.student-row:last-of-type{border-bottom:none;}
+.student-row:hover{background:#FBF9FF;}.student-row.selected{background:#F0EBFB;}
+.s-avatar{width:40px;height:40px;background:var(--purple-light);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--purple);font-size:16px;font-weight:700;flex-shrink:0;}
+.s-info{flex:1;min-width:0;}
+.s-name{font-size:14px;font-weight:700;}
+.s-email{font-size:12px;color:var(--muted);margin-top:2px;}
+.s-meta{font-size:12px;color:var(--purple);font-weight:600;white-space:nowrap;}
+.progress-bar-bg{background:#EDEBF5;border-radius:99px;height:8px;overflow:hidden;flex:1;}
+.progress-bar-fill{height:100%;background:var(--purple);border-radius:99px;width:0;transition:width 1s ease;}
+
+/* ── Buttons ── */
+.btn-action{padding:6px 16px;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-approve{background:#D4EDDA;color:#1B6B35;}.btn-approve:hover{background:#b8dfca;}
+.btn-decline{background:#F8D7DA;color:#721C24;}.btn-decline:hover{background:#f1b8bc;}
+.btn-view{background:var(--purple-light);color:var(--purple);}.btn-view:hover{background:#DDD5F5;}
+.btn-primary{background:var(--purple);color:#fff;}.btn-primary:hover{background:var(--purple-dark);}
+.btn-submit-report{background:#E8F5E9;color:#2E7D32;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;white-space:nowrap;}
+.btn-submit-report:hover{background:#C8E6C9;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+
+/* ── Eval form ── */
+.eval-form{background:#fff;border-radius:10px;padding:14px;margin-top:8px;border:1px solid var(--border);display:none;}
+.eval-form.open{display:block;}
+.eval-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;}
+.eval-row input[type=number]{width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Tajawal',sans-serif;font-size:14px;text-align:center;outline:none;}
+.eval-row textarea{flex:1;min-width:150px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;resize:vertical;min-height:50px;outline:none;direction:rtl;}
+
+/* ── Stars ── */
+.stars-wrap{display:flex;gap:4px;direction:ltr;}
+.star{font-size:22px;cursor:pointer;color:#ddd;transition:color .15s;line-height:1;}
+.star.active{color:#F5A623;}.star.hover{color:#F5A623;}
+.star-static{color:#F5A623;font-size:16px;}
+.star-empty{color:#ddd;font-size:16px;}
+
+/* ── Next due ── */
+.next-due-card{background:linear-gradient(135deg,var(--purple),var(--purple-dark));border-radius:var(--r);padding:24px 28px;color:#fff;display:flex;align-items:center;gap:20px;margin-bottom:24px;box-shadow:0 8px 32px rgba(107,77,196,.35);}
+
+/* ── Final Report Bar ── */
+.final-bar{background:linear-gradient(135deg,#2C3E50,#4A5568);border-radius:var(--r);padding:20px 28px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;box-shadow:0 6px 24px rgba(0,0,0,.18);gap:16px;flex-wrap:wrap;}
+.final-bar-info{display:flex;align-items:center;gap:16px;}
+.final-bar-icon{font-size:32px;}
+.final-bar-text h3{font-size:16px;font-weight:800;margin-bottom:3px;}
+.final-bar-text p{font-size:13px;opacity:.8;}
+.btn-final{padding:10px 22px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-final:hover{background:rgba(255,255,255,.28);}
+.fstatus-badge{padding:6px 14px;border-radius:99px;font-size:12px;font-weight:700;}
+.fstatus-none{background:rgba(255,255,255,.15);color:#fff;}
+.fstatus-sent{background:#D4EDDA;color:#1B6B35;}
+.fstatus-approved{background:#D1ECF1;color:#0C5460;}
+
+/* ── Advisors contact ── */
+.advisor-contact-row{display:flex;align-items:center;gap:16px;padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--border);margin-bottom:12px;}
+.adv-avatar{width:44px;height:44px;background:var(--purple);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;flex-shrink:0;}
+.adv-info{flex:1;}
+.adv-name{font-size:14px;font-weight:700;}
+.adv-email-text{font-size:12px;color:var(--muted);}
+.adv-count{font-size:12px;color:var(--purple);font-weight:600;}
+
+/* ══ CHAT MODAL ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:20px;padding:0;width:100%;max-width:720px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:slideUp .3s ease;}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.modal-title{font-size:16px;font-weight:800;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px 8px;border-radius:8px;}
+.modal-close:hover{background:#F0EBF8;color:var(--purple);}
+.modal-body{padding:24px;overflow-y:auto;flex:1;}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;}
+
+/* Chat Layout */
+.chat-layout{display:flex;height:480px;}
+.chat-contacts{width:220px;border-left:1px solid var(--border);overflow-y:auto;background:#F9F7FF;flex-shrink:0;}
+.chat-contact-item{padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;}
+.chat-contact-item:hover{background:#EDE8F8;}
+.chat-contact-item.active{background:#EDE8F8;border-right:3px solid var(--purple);}
+.chat-contact-name{font-size:14px;font-weight:700;}
+.chat-contact-role{font-size:11px;color:var(--muted);}
+.chat-contact-preview{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chat-contact-unread{background:#D94040;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;float:left;margin-top:2px;}
+.chat-area{flex:1;display:flex;flex-direction:column;}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.chat-msg{max-width:75%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;}
+.chat-msg.mine{background:var(--purple);color:#fff;align-self:flex-start;border-bottom-left-radius:4px;}
+.chat-msg.theirs{background:#F0EBFB;color:var(--text);align-self:flex-end;border-bottom-right-radius:4px;}
+.chat-msg-time{font-size:10px;opacity:.7;margin-top:4px;}
+.chat-input-row{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+.chat-input{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;direction:rtl;}
+.chat-input:focus{border-color:var(--purple);}
+.chat-send-btn{padding:10px 18px;background:var(--purple);color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;}
+.chat-empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;}
+
+/* Report form modal */
+.report-form-section{margin-bottom:20px;}
+.report-form-section h4{font-size:14px;font-weight:700;color:var(--purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.report-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.rinfo{background:#F7F5FD;border-radius:10px;padding:10px;}
+.rinfo-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px;}
+.rinfo-val{font-size:13px;font-weight:600;}
+.rf-label{font-size:13px;font-weight:700;color:#444;margin-bottom:6px;}
+.rf-val{background:#F7F5FD;border-radius:10px;padding:12px;font-size:13.5px;line-height:1.7;margin-bottom:12px;}
+.rf-input{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;direction:rtl;margin-bottom:12px;background:#FDFBFF;resize:vertical;}
+.rf-input:focus{border-color:var(--purple);}
+.sup-eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.sup-eval-item label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#444;}
+.sup-eval-item select{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;}
+.file-upload-area{border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#FDFBFF;}
+.file-upload-area:hover{border-color:var(--purple);background:var(--purple-light);}
+.file-upload-area input{display:none;}
+
+/* ── User Management ── */
+.um-tab{padding:12px 24px;background:none;border:none;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;transition:all .2s;}
+.um-tab.active{color:var(--purple);border-bottom-color:var(--purple);}
+.um-filter{padding:7px 16px;border:1.5px solid var(--border);border-radius:50px;background:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .2s;}
+.um-filter.active{background:var(--purple);color:#fff;border-color:var(--purple);}
+.um-user-row{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap;}
+.um-role-badge{padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;}
+.role-student{background:#D4EDDA;color:#1B6B35;}.role-advisor{background:#CCE5FF;color:#004085;}
+.role-faculty{background:#FFF3CD;color:#856404;}.role-supervisor{background:#F8D7DA;color:#721C24;}
+
+/* ── Loading / Toast ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:none;align-items:center;justify-content:center;z-index:999;}
+.loading-overlay.active{display:flex;}
+.spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#2C3E50;color:#fff;padding:12px 24px;border-radius:50px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+
+@media(max-width:700px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .dash-body{padding:16px;}
+  .dash-topbar{padding:0 12px;}
+  .chat-contacts{width:160px;}
+  .report-info-grid,.sup-eval-grid{grid-template-columns:1fr;}
+  .role-card{width:150px;height:150px;}
+  .login-card{padding:36px 24px 40px;margin:16px;}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: USER MANAGEMENT
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-user-mgmt">
+  <div class="modal-box" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-title">👥 إدارة المستخدمين</div>
+      <button class="modal-close" onclick="closeModal('modal-user-mgmt')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+      <!-- Tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--border);background:#F9F7FF;">
+        <button class="um-tab active" id="tab-add" onclick="switchUmTab('add')">➕ إضافة مستخدم</button>
+        <button class="um-tab" id="tab-list" onclick="switchUmTab('list')">📋 قائمة المستخدمين</button>
+      </div>
+      <!-- Add user form -->
+      <div id="um-add-panel" style="padding:24px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div class="rf-label">الاسم الكامل *</div>
+            <input class="rf-input" id="um-name" type="text" placeholder="مثال: عبدالعزيز محمد العبود">
+          </div>
+          <div>
+            <div class="rf-label">البريد الإلكتروني *</div>
+            <input class="rf-input" id="um-email" type="email" placeholder="user@taibahu.edu.sa">
+          </div>
+          <div>
+            <div class="rf-label">كلمة المرور * (8 أحرف على الأقل)</div>
+            <input class="rf-input" id="um-password" type="password" placeholder="كلمة مرور قوية">
+          </div>
+          <div>
+            <div class="rf-label">الدور *</div>
+            <select class="rf-input" id="um-role" onchange="toggleUmRoleFields()">
+              <option value="">— اختر الدور —</option>
+              <option value="student">طالب</option>
+              <option value="advisor">مرشد أكاديمي</option>
+              <option value="faculty">عضو هيئة تدريس</option>
+              <option value="supervisor">مشرف التدريب</option>
+            </select>
+          </div>
+        </div>
+        <!-- Student-specific fields -->
+        <div id="um-student-fields" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:12px;">بيانات الطالب</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <div class="rf-label">القسم العلمي</div>
+              <input class="rf-input" id="um-dept" type="text" placeholder="مثال: نظم المعلومات الإدارية">
+            </div>
+            <div>
+              <div class="rf-label">المرشد الأكاديمي</div>
+              <select class="rf-input" id="um-advisor">
+                <option value="">— اختر المرشد —</option>
+              </select>
+            </div>
+            <div>
+              <div class="rf-label">جهة التدريب</div>
+              <input class="rf-input" id="um-company" type="text" placeholder="مثال: شركة أرامكو السعودية">
+            </div>
+            <div>
+              <div class="rf-label">القسم الذي يتدرب فيه</div>
+              <input class="rf-input" id="um-companyDept" type="text" placeholder="مثال: تقنية المعلومات">
+            </div>
+            <div>
+              <div class="rf-label">عدد التقارير المطلوبة</div>
+              <input class="rf-input" id="um-reportCount" type="number" value="10" min="1" max="20">
+            </div>
+          </div>
+        </div>
+        <div id="um-error" style="color:#D94040;font-size:13px;margin-top:12px;min-height:18px;"></div>
+        <div id="um-success" style="color:#1B6B35;font-size:13px;background:#D4EDDA;padding:10px 14px;border-radius:10px;margin-top:12px;display:none;"></div>
+        <button class="btn-action btn-primary" style="margin-top:16px;width:100%;padding:14px;font-size:15px;" onclick="createUser()">
+          إنشاء المستخدم وحفظه في قاعدة البيانات ✅
+        </button>
+      </div>
+      <!-- Users list -->
+      <div id="um-list-panel" style="padding:24px;display:none;">
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="um-filter active" data-role="all"  onclick="filterUsers('all')">الكل</button>
+          <button class="um-filter" data-role="student"     onclick="filterUsers('student')">الطلاب</button>
+          <button class="um-filter" data-role="advisor"     onclick="filterUsers('advisor')">المرشدون</button>
+          <button class="um-filter" data-role="faculty"     onclick="filterUsers('faculty')">هيئة التدريس</button>
+          <button class="um-filter" data-role="supervisor"  onclick="filterUsers('supervisor')">المشرفون</button>
+        </div>
+        <div id="um-users-table"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="modal-chat">
+  <div class="modal-box" style="max-width:800px;">
+    <div class="modal-header">
+      <div class="modal-title">💬 المراسلات</div>
+      <button class="modal-close" onclick="closeModal('modal-chat')">✕</button>
+    </div>
+    <div class="chat-layout" style="padding:0;flex:1;">
+      <div class="chat-contacts" id="chat-contacts-list"></div>
+      <div class="chat-area">
+        <div class="chat-messages" id="chat-messages-area">
+          <div class="chat-empty">اختر محادثة من القائمة</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chat-input" placeholder="اكتب رسالتك..." onkeydown="if(event.key==='Enter')sendMsg()">
+          <button class="chat-send-btn" onclick="sendMsg()">إرسال &#x2191;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: VIEW / SUBMIT REPORT
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-report-title">التقرير</div>
+      <button class="modal-close" onclick="closeModal('modal-report')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-report-body"></div>
+    <div class="modal-footer" id="modal-report-footer"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: FINAL REPORT
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-final">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-final-title">التقرير النهائي</div>
+      <button class="modal-close" onclick="closeModal('modal-final')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-final-body"></div>
+    <div class="modal-footer" id="modal-final-footer"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — اختيار الدور
+══════════════════════════════════════════ -->
+<div id="screen-roles" class="screen active">
+  <div class="home-header"><h1>منصة التدريب الميداني التعاوني</h1></div>
+  <div class="roles-area">
+    <div class="role-card supervisor" onclick="selectRole('supervisor')"><div class="role-icon">👤</div><div class="role-label">مشرف<br>التدريب</div></div>
+    <div class="role-card faculty"    onclick="selectRole('faculty')"><div class="role-icon">👥</div><div class="role-label">أعضاء هيئة<br>التدريس</div></div>
+    <div class="role-card students"   onclick="selectRole('student')"><div class="role-icon">📖</div><div class="role-label">الطلاب</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — تسجيل الدخول
+══════════════════════════════════════════ -->
+<div id="screen-login" class="screen">
+  <button class="login-back" onclick="show('screen-roles')">&#8594; رجوع</button>
+  <div class="login-card">
+    <div class="login-logo">🎓</div>
+    <div class="login-title"><h1>منصة التدريب الميداني</h1><p id="login-subtitle">تسجيل الدخول</p></div>
+    <div class="form-group"><label>البريد الإلكتروني</label><div class="input-wrap"><input type="email" id="email-input" placeholder="أدخل بريدك الإلكتروني"><span class="input-icon">✉</span></div></div>
+    <div class="form-group"><label>كلمة المرور</label><div class="input-wrap"><input type="password" id="pass-input" placeholder="أدخل كلمة المرور"><span class="input-icon">🔒</span></div></div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">تسجيل الدخول</button>
+    <div class="error-msg" id="error-msg"></div>
+    <div class="demo-hint">وضع تجريبي — أدخل أي بريد وكلمة مرور لتجربة الواجهة</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3 — لوحة تحكم الطالب
+══════════════════════════════════════════ -->
+<div id="screen-student" class="screen dash-screen">
+  <div class="dash-topbar">
+    <div class="topbar-right">
+      <div class="dash-avatar" id="st-avatar">ط</div>
+      <div class="topbar-title"><h2>لوحة تحكم الطالب</h2><span id="st-name-hdr">—</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-msg-topbar" onclick="openChat('student')">💬 مراسلة المرشد الأكاديمي<span class="msg-badge" id="st-msg-badge" style="display:none;">1</span></button>
+      <button class="btn-logout" onclick="doLogout()">&#8592; خروج</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    <!-- Final Report Bar -->
+    <div class="final-bar">
+      <div class="final-bar-info">
+        <div class="final-bar-icon">📋</div>
+        <div class="final-bar-text"><h3>التقرير النهائي</h3><p>أرسل تقريرك النهائي لمشرف التدريب ليُحيله للمرشد الأكاديمي</p></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span class="fstatus-badge fstatus-none" id="st-final-status">لم يُرسَل بعد</span>
+        <button class="btn-final" onclick="openStudentFinal()">إرسال التقرير النهائي 📤</button>
+      </div>
+    </div>
+    <!-- Next due -->
+    <div class="next-due-card" id="st-next-due">
+      <div style="font-size:40px;">📅</div>
+      <div><div style="font-size:13px;opacity:.8;margin-bottom:4px;">التقرير القادم المطلوب منك</div>
+        <div style="font-size:19px;font-weight:800;" id="st-next-title">—</div>
+        <div style="font-size:14px;opacity:.85;margin-top:4px;" id="st-next-date">—</div>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">إجمالي التقارير المطلوبة</div><div class="stat-icon" style="background:#FFEAEA;">📄</div></div><div class="stat-value" id="st-total">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">التقارير المُرسَلة</div><div class="stat-icon" style="background:#E2F5EB;">✅</div></div><div class="stat-value" id="st-done">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">قيد التنفيذ</div><div class="stat-icon" style="background:#FFF8E1;">⏳</div></div><div class="stat-value" id="st-inp">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">نسبة الإنجاز</div><div class="stat-icon" style="background:#EDE8F8;">📊</div></div><div class="stat-value" id="st-pct">—</div></div>
+    </div>
+    <!-- Reports table -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">تقاريري الدورية</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>التقرير</th><th>تاريخ الاستحقاق</th><th>الحالة</th><th>اعتماد المشرف</th><th>تقييم المرشد (/5)</th><th>إجراء</th></tr></thead>
+          <tbody id="st-reports-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4 — لوحة تحكم المرشد الأكاديمي
+══════════════════════════════════════════ -->
+<div id="screen-advisor" class="screen dash-screen">
+  <div class="dash-topbar">
+    <div class="topbar-right">
+      <div class="dash-avatar" id="adv-avatar">م</div>
+      <div class="topbar-title"><h2>لوحة تحكم المرشد الأكاديمي</h2><span id="adv-name-hdr">—</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-msg-topbar" onclick="openChat('advisor')">💬 المراسلات<span class="msg-badge" id="adv-msg-badge" style="display:none;">2</span></button>
+      <button class="btn-logout" onclick="doLogout()">&#8592; خروج</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">إجمالي التقارير</div><div class="stat-icon" style="background:#FFEAEA;">📄</div></div><div class="stat-value" id="adv-total">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">معدل الإنجاز</div><div class="stat-icon" style="background:#E2F5EB;">✅</div></div><div class="stat-value" id="adv-rate">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">تقارير مرفوعة</div><div class="stat-icon" style="background:#EDE8F8;">📋</div></div><div class="stat-value" id="adv-sub">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">إجمالي الطلاب</div><div class="stat-icon" style="background:#E3F0FB;">👤</div></div><div class="stat-value" id="adv-cnt">—</div></div>
+    </div>
+    <!-- Student overview -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">نظرة عامة على الطلاب</div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:13px;color:var(--muted);" id="adv-st-label"></span><button class="toggle-btn" id="adv-expand-btn" onclick="toggleAdvStudents()">+</button></div>
+      </div>
+      <div id="adv-students-list"></div>
+    </div>
+    <!-- Student detail -->
+    <div id="adv-detail-card" class="card" style="display:none;">
+      <div class="card-header">
+        <div class="card-title" id="adv-detail-name">تفاصيل تقدم الطالب</div>
+        <button class="toggle-btn" id="adv-rem-btn" onclick="toggleAdvRemaining()">+ التقارير المتبقية</button>
+      </div>
+      <div id="adv-detail-container"></div>
+    </div>
+    <!-- Final reports for advisor -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">التقارير النهائية المُحالة إليك 📋</div></div>
+      <div id="adv-final-list"><p style="color:var(--muted);text-align:center;padding:20px;">لا توجد تقارير نهائية محالة بعد</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 5 — لوحة تحكم هيئة التدريس
+══════════════════════════════════════════ -->
+<div id="screen-faculty" class="screen dash-screen">
+  <div class="dash-topbar">
+    <div class="topbar-right">
+      <div class="dash-avatar" id="fac-avatar">ه</div>
+      <div class="topbar-title"><h2>لوحة تحكم هيئة التدريس</h2><span id="fac-name-hdr">—</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-msg-topbar" onclick="openChat('faculty')">💬 مراسلة مشرف التدريب<span class="msg-badge" id="fac-msg-badge" style="display:none;">1</span></button>
+      <button class="btn-logout" onclick="doLogout()">&#8592; خروج</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">إجمالي الطلاب</div><div class="stat-icon" style="background:#E3F0FB;">👥</div></div><div class="stat-value" id="fac-cnt">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">تقارير مكتملة</div><div class="stat-icon" style="background:#E2F5EB;">✅</div></div><div class="stat-value" id="fac-done">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">بانتظار التقييم</div><div class="stat-icon" style="background:#FFF8E1;">📝</div></div><div class="stat-value" id="fac-rev">—</div></div>
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">معدل الإنجاز</div><div class="stat-icon" style="background:#EDE8F8;">📊</div></div><div class="stat-value" id="fac-rate">—</div></div>
+    </div>
+    <!-- Students list -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">الطلاب المُسنَدون إليك</div>
+        <button class="toggle-btn" id="fac-expand-btn" onclick="toggleFacStudents()">+</button>
+      </div>
+      <div id="fac-students-list"></div>
+    </div>
+    <!-- Student detail -->
+    <div id="fac-detail-card" class="card" style="display:none;">
+      <div class="card-header">
+        <div class="card-title" id="fac-detail-name">تقارير الطالب</div>
+        <button class="toggle-btn" id="fac-rem-btn" onclick="toggleFacRemaining()">+ التقارير المتبقية</button>
+      </div>
+      <div id="fac-detail-container"></div>
+    </div>
+    <!-- Final reports for faculty (sent from supervisor → advisor, visible to faculty) -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">التقارير النهائية للطلاب 📋</div></div>
+      <div id="fac-final-list"><p style="color:var(--muted);text-align:center;padding:20px;">لا توجد تقارير نهائية مُقدَّمة بعد</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 6 — لوحة تحكم مشرف التدريب
+══════════════════════════════════════════ -->
+<div id="screen-supervisor" class="screen dash-screen">
+  <div class="dash-topbar">
+    <div class="topbar-right">
+      <div class="dash-avatar" id="sup-avatar">م</div>
+      <div class="topbar-title"><h2>لوحة تحكم مشرف التدريب</h2><span id="sup-name-hdr">—</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-msg-topbar" onclick="openChat('supervisor')">💬 المراسلات<span class="msg-badge" id="sup-msg-badge" style="display:none;">3</span></button>
+      <button class="btn-msg-topbar" style="background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9;" onclick="openUserMgmt()">👥 إدارة المستخدمين</button>
+      <button class="btn-logout" onclick="doLogout()">&#8592; خروج</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="stats-grid" style="grid-template-columns:1fr 1fr;max-width:500px;">
+      <div class="stat-card"><div class="stat-top"><div class="stat-label">إجمالي المتدربين</div><div class="stat-icon" style="background:#E3F0FB;">👥</div></div><div class="stat-value" id="sup-total">—</div></div>
+      <div class="stat-card clickable" id="sup-contact-card" onclick="toggleAdvisorsPanel()">
+        <div class="stat-top"><div class="stat-label">التواصل مع المرشدين الأكاديميين</div><div class="stat-icon" style="background:#EDE8F8;">💬</div></div>
+        <div style="font-size:13px;color:var(--purple);font-weight:700;">اضغط للعرض</div>
+      </div>
+    </div>
+    <!-- Advisors panel -->
+    <div class="card" id="advisors-panel" style="display:none;">
+      <div class="card-header"><div class="card-title">المرشدون الأكاديميون</div><button class="toggle-btn" onclick="toggleAdvisorsPanel()">−</button></div>
+      <div id="advisors-list"></div>
+    </div>
+    <!-- Final report bar -->
+    <div class="final-bar">
+      <div class="final-bar-info"><div class="final-bar-icon">📋</div>
+        <div class="final-bar-text"><h3>التقييم النهائي للطلاب</h3><p>راجع التقارير النهائية وارفع تقييمك لإحالته للمرشد الأكاديمي</p></div>
+      </div>
+      <button class="btn-final" onclick="openSupFinalPanel()">عرض التقارير النهائية</button>
+    </div>
+    <!-- Students -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">المتدربون</div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:13px;color:var(--muted);" id="sup-st-label"></span><button class="toggle-btn" id="sup-expand-btn" onclick="toggleSupStudents()">+</button></div>
+      </div>
+      <div id="sup-students-list"></div>
+    </div>
+    <!-- Student submitted reports -->
+    <div id="sup-student-reports-card" class="card" style="display:none;">
+      <div class="card-header"><div class="card-title" id="sup-reports-title">تقارير الطالب</div></div>
+      <div id="sup-reports-container"></div>
+    </div>
+    <!-- Final reports panel -->
+    <div id="sup-final-panel" class="card" style="display:none;">
+      <div class="card-header"><div class="card-title">التقارير النهائية المقدمة</div><button class="toggle-btn" onclick="document.getElementById('sup-final-panel').style.display='none'">−</button></div>
+      <div id="sup-final-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════ -->
+<script>
+/* ════════ DEMO DATA ════════ */
+const DEMO_ADVISORS = [
+  { id:'advisor1', name:'د. نظمي القباطي',   email:'n.alqibati@taibahu.edu.sa',  role:'advisor', studentIds:['student1','student2','student3'] },
+  { id:'advisor2', name:'د. عبدالله الشريف', email:'a.alsharif@taibahu.edu.sa',  role:'advisor', studentIds:['student4','student5'] },
+];
+const DEMO_USERS = {
+  student1: { name:'عبدالعزيز محمد العبود', email:'tu4303698@taibahu.edu.sa', role:'student', advisorId:'advisor1', dept:'نظم المعلومات الإدارية', company:'شركة أرامكو السعودية', companyDept:'تقنية المعلومات' },
+  student2: { name:'سارة أحمد الزهراني',   email:'tu1234567@taibahu.edu.sa', role:'student', advisorId:'advisor1', dept:'نظم المعلومات الإدارية', company:'البنك الأهلي',          companyDept:'الرقابة والمراجعة' },
+  student3: { name:'محمد علي الحربي',       email:'tu7654321@taibahu.edu.sa', role:'student', advisorId:'advisor1', dept:'إدارة الأعمال',          company:'شركة STC',             companyDept:'خدمة العملاء' },
+  student4: { name:'نورة خالد السلمي',      email:'tu9876543@taibahu.edu.sa', role:'student', advisorId:'advisor2', dept:'المحاسبة',               company:'KPMG',                  companyDept:'التدقيق الداخلي' },
+  student5: { name:'فيصل عمر القحطاني',    email:'tu1122334@taibahu.edu.sa', role:'student', advisorId:'advisor2', dept:'إدارة الأعمال',          company:'مكة مول',               companyDept:'التسويق' },
+  advisor1: { name:'د. نظمي القباطي',    email:'advisor@taibahu.edu.sa',  role:'advisor'   },
+  advisor2: { name:'د. عبدالله الشريف',  email:'advisor2@taibahu.edu.sa', role:'advisor'   },
+  faculty1: { name:'أ. سلمى البشري',     email:'faculty@taibahu.edu.sa',  role:'faculty'   },
+  sup1:     { name:'م. أحمد الرشيدي',    email:'sup@taibahu.edu.sa',      role:'supervisor' },
+};
+
+function makeReports(sid, u){
+  const rNames=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر'];
+  return rNames.map((n,i)=>({
+    id:`${sid}_r${i+1}`, studentId:sid, reportTitle:`التقرير ${n}`, weekNum:i+1,
+    dateFrom:`${1+i*7}/4/2026`, dateTo:`${7+i*7}/4/2026`,
+    dueDate:`2026/${4+Math.floor(i/3)}/${String(1+(i%3)*10).padStart(2,'0')}`,
+    status: i<5?'مكتمل': i===5?'قيد التنفيذ':'معلق',
+    supervisorStatus: i<4?'معتمد': i===4?'مرفوض': null,
+    rating: i<5?[5,4,4,5,3][i]:null,
+    comment: i<5?['ممتاز','جيد جداً','جيد','رائع','جيد'][i]:'',
+    submittedContent: i<5||i===5 ? {
+      goal:`التعرف على آليات العمل في ${u.companyDept||'القسم'} وتطبيق المفاهيم الأكاديمية عملياً.`,
+      tasks:`• متابعة العمليات اليومية\n• المشاركة في اجتماعات الفريق\n• إعداد التقارير الأسبوعية\n• التدرب على ${['SAP','Oracle','MS Office','Power BI','Python'][i%5]}.`,
+      programs:`${['Microsoft Office, SAP','Oracle ERP, Excel','Python, Power BI','MS Teams, SharePoint','Salesforce, Tableau'][i%5]}`,
+      benefits:`اكتسبت مهارات ${['التحليل البياني','التواصل مع العملاء','إدارة المشاريع','التفكير النقدي','العمل الجماعي'][i%5]} بشكل عملي.`,
+      suggestions:`اقترح ${['توفير دورات إضافية','زيادة الساعات العملية','إشراك المتدربين في مشاريع حقيقية','تعزيز التوجيه الميداني','تنظيم زيارات ميدانية'][i%5]}.`
+    } : null
+  }));
+}
+
+const DEMO_REPORTS = {};
+Object.keys(DEMO_USERS).filter(k=>DEMO_USERS[k].role==='student').forEach(sid=>{
+  DEMO_REPORTS[sid] = makeReports(sid, DEMO_USERS[sid]);
+});
+
+const FINAL_REPORTS = {};
+Object.keys(DEMO_REPORTS).forEach(sid=>{ FINAL_REPORTS[sid]={status:'none',title:'',abstract:'',fileName:'',supervisorEval:null}; });
+
+// Demo messages (key = sorted IDs joined with _)
+const DEMO_MSGS = {
+  'advisor1_student1': [
+    { from:'advisor1', fromName:'د. نظمي القباطي',   text:'مرحباً عبدالعزيز، كيف يسير التدريب؟', time:'9:30 ص' },
+    { from:'student1', fromName:'عبدالعزيز العبود', text:'الحمد لله دكتور، ماشٍ بشكل جيد. أستفسر عن متطلبات التقرير الثالث.', time:'9:45 ص' },
+    { from:'advisor1', fromName:'د. نظمي القباطي',   text:'التقرير الثالث يجب أن يتضمن تفاصيل المهام الأسبوعية والمهارات المكتسبة.', time:'10:00 ص' },
+  ],
+  'advisor1_student2': [
+    { from:'advisor1', fromName:'د. نظمي القباطي', text:'سارة، تأكدي من رفع التقرير الخامس قبل الموعد المحدد.', time:'أمس' },
+  ],
+  'sup1_advisor1': [
+    { from:'sup1',     fromName:'م. أحمد الرشيدي', text:'مرحباً دكتور نظمي، أودّ التنسيق بشأن الطلاب المنتسبين.', time:'أمس 2:00 م' },
+    { from:'advisor1', fromName:'د. نظمي القباطي', text:'أهلاً مهندس أحمد، تفضل.', time:'أمس 2:30 م' },
+  ],
+  'sup1_faculty1': [],
+};
+
+/* ════════ STATE ════════ */
+let currentRole=null, currentUser=null;
+let advStudents=[], advShowAll=false, advShowRemaining=false, advSelectedStudent=null;
+let facStudents=[], facShowAll=false, facShowRemaining=false, facSelectedStudent=null;
+let supStudents=[], supShowAll=false, supSelectedStudent=null, advisorsPanelOpen=false;
+let chatCurrentConvId=null, pendingRating=null;
+
+const ROLE_LABELS={student:'تسجيل دخول الطلاب',advisor:'تسجيل دخول المرشد الأكاديمي',faculty:'تسجيل دخول هيئة التدريس',supervisor:'تسجيل دخول مشرف التدريب'};
+
+/* ════════ NAVIGATION ════════ */
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+function selectRole(r){currentRole=r;document.getElementById('login-subtitle').textContent=ROLE_LABELS[r]||'تسجيل الدخول';document.getElementById('error-msg').textContent='';document.getElementById('email-input').value='';document.getElementById('pass-input').value='';show('screen-login');}
+function navigateToDashboard(role){const m={student:'screen-student',advisor:'screen-advisor',faculty:'screen-faculty',supervisor:'screen-supervisor'};if(!m[role]){show('screen-roles');return;}buildDashboard(role);show(m[role]);}
+
+/* ════════ LOGIN / LOGOUT ════════ */
+async function doLogin(){
+  const email=document.getElementById('email-input').value.trim();
+  const pass=document.getElementById('pass-input').value.trim();
+  const err=document.getElementById('error-msg');
+  const btn=document.getElementById('btn-login');
+  if(!email||!pass){err.textContent='يرجى إدخال البريد وكلمة المرور';return;}
+  err.textContent='';btn.disabled=true;btn.textContent='جارٍ التحقق...';
+  try{
+    if(window.FB?.ready){
+      const {user}=await window.FB.login(email,pass);
+      const ud=await window.FB.getDoc(`users/${user.uid}`);
+      if(!ud.exists()) throw new Error('لم يتم العثور على بيانات المستخدم');
+      const data=ud.data();
+      if(data.role!==currentRole) throw new Error('هذا الحساب مسجّل بدور مختلف');
+      currentUser={id:user.uid,...data};
+    } else {
+      const found=Object.entries(DEMO_USERS).find(([,u])=>u.email.toLowerCase()===email.toLowerCase()&&u.role===currentRole);
+      currentUser=found?{id:found[0],...found[1]}:{id:currentRole+'_demo',name:demoName(currentRole),email,role:currentRole,...demoExtra(currentRole)};
+    }
+    navigateToDashboard(currentRole);
+  }catch(e){err.textContent=e.message||'بريد أو كلمة مرور غير صحيحة';}
+  finally{btn.disabled=false;btn.textContent='تسجيل الدخول';}
+}
+function demoName(r){return{student:'طالب تجريبي',advisor:'د. نظمي القباطي',faculty:'أ. سلمى البشري',supervisor:'م. أحمد الرشيدي'}[r]||'مستخدم';}
+function demoExtra(r){return r==='student'?{advisorId:'advisor1',dept:'نظم المعلومات',company:'أرامكو',companyDept:'تقنية المعلومات'}:{};}
+function doLogout(){if(window.FB?.ready)window.FB.logout();currentUser=null;currentRole=null;advStudents=[];facStudents=[];supStudents=[];show('screen-roles');}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('screen-login').classList.contains('active'))doLogin();});
+
+/* ════════ MODALS ════════ */
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+/* ════════ BUILD DASHBOARDS ════════ */
+function buildDashboard(role){
+  setLoading(true);
+  try{
+    if(role==='student')    buildStudentDash();
+    if(role==='advisor')    buildAdvisorDash();
+    if(role==='faculty')    buildFacultyDash();
+    if(role==='supervisor') buildSupDash();
+  }finally{setLoading(false);}
+}
+function badge(s){
+  if(s==='مكتمل')        return`<span class="badge badge-done">${s}</span>`;
+  if(s==='قيد التنفيذ') return`<span class="badge badge-progress">${s}</span>`;
+  if(s==='معتمد')        return`<span class="badge badge-approved">${s}</span>`;
+  if(s==='مرفوض')        return`<span class="badge badge-declined">${s}</span>`;
+  return`<span class="badge badge-pending">${s||'معلق'}</span>`;
+}
+function stars(n,size=16){if(n==null)return'<span style="color:var(--muted);">—</span>';return`<span style="color:#F5A623;font-size:${size}px;">${'★'.repeat(n)}</span><span style="color:#ddd;font-size:${size}px;">${'☆'.repeat(5-n)}</span> <small>(${n}/5)</small>`;}
+
+/* ─────── STUDENT ─────── */
+function buildStudentDash(){
+  const u=currentUser;
+  setEl('st-name-hdr',u.name||'الطالب');
+  setEl('st-avatar',(u.name||'ط')[0]);
+  const reps=getReports(u.id);
+  const done=reps.filter(r=>r.status==='مكتمل').length;
+  const inp=reps.filter(r=>r.status==='قيد التنفيذ').length;
+  const pct=reps.length?Math.round(done/reps.length*100):0;
+  setEl('st-total',reps.length);setEl('st-done',done);setEl('st-inp',inp);setEl('st-pct',pct+'%');
+  const next=reps.find(r=>r.status!=='مكتمل');
+  if(next){setEl('st-next-title',next.reportTitle);setEl('st-next-date','تاريخ الاستحقاق: '+next.dueDate);}
+  else document.getElementById('st-next-due').style.display='none';
+
+  const fs=FINAL_REPORTS[u.id]||{status:'none'};
+  const sl={'none':'لم يُرسَل بعد','sent':'تم الإرسال — بانتظار المشرف','approved':'معتمد — محال للمرشد الأكاديمي','declined':'مرفوض من المشرف'};
+  const sc={'none':'fstatus-none','sent':'fstatus-sent','approved':'fstatus-approved','declined':'fstatus-none'};
+  const sb=document.getElementById('st-final-status');
+  if(sb){sb.textContent=sl[fs.status]||'—';sb.className='fstatus-badge '+(sc[fs.status]||'fstatus-none');}
+
+  document.getElementById('st-reports-tbody').innerHTML=reps.map(r=>`
+    <tr>
+      <td>${r.reportTitle}</td>
+      <td style="direction:ltr;text-align:right;">${r.dueDate}</td>
+      <td>${badge(r.status)}</td>
+      <td>${r.supervisorStatus?badge(r.supervisorStatus):'<span style="color:var(--muted);font-size:12px;">بانتظار المشرف</span>'}</td>
+      <td>${stars(r.rating)}</td>
+      <td>${r.status!=='مكتمل'&&r.status!=='معلق_نهائي'?`<button class="btn-submit-report" onclick="openSubmitReport('${u.id}','${r.id}')">رفع التقرير ⬆</button>`:'<span style="color:var(--muted);font-size:12px;">مكتمل</span>'}</td>
+    </tr>`).join('');
+}
+
+function openSubmitReport(sid, rid){
+  const u=DEMO_USERS[sid]||currentUser;
+  const reps=getReports(sid);
+  const r=reps.find(x=>x.id===rid);
+  if(!r) return;
+  document.getElementById('modal-report-title').textContent=`رفع ${r.reportTitle}`;
+  document.getElementById('modal-report-body').innerHTML=`
+    <div class="report-form-section">
+      <h4>بيانات الطالب</h4>
+      <div class="report-info-grid">
+        <div class="rinfo"><div class="rinfo-label">اسم الطالب</div><div class="rinfo-val">${u.name}</div></div>
+        <div class="rinfo"><div class="rinfo-label">القسم العلمي</div><div class="rinfo-val">${u.dept||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">جهة التدريب</div><div class="rinfo-val">${u.company||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">القسم المُدرَّب فيه</div><div class="rinfo-val">${u.companyDept||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">رقم الأسبوع</div><div class="rinfo-val">${r.weekNum}</div></div>
+        <div class="rinfo"><div class="rinfo-label">الفترة</div><div class="rinfo-val" style="direction:ltr;">من ${r.dateFrom} إلى ${r.dateTo}</div></div>
+      </div>
+    </div>
+    <div class="report-form-section">
+      <h4>تفاصيل التدريب</h4>
+      <div class="rf-label">1) الهدف من التدريب في القسم المذكور</div>
+      <textarea class="rf-input" id="submit-goal" rows="2" placeholder="اكتب الهدف من التدريب...">${r.submittedContent?.goal||''}</textarea>
+      <div class="rf-label">2) المهام التي تم التدرب عليها</div>
+      <textarea class="rf-input" id="submit-tasks" rows="4" placeholder="اذكر المهام التي أنجزتها...">${r.submittedContent?.tasks||''}</textarea>
+      <div class="rf-label">3) البرامج التي استُخدمت أثناء التدريب</div>
+      <textarea class="rf-input" id="submit-programs" rows="2" placeholder="مثال: SAP, Excel, Python...">${r.submittedContent?.programs||''}</textarea>
+      <div class="rf-label">4) الفائدة التي تحققت</div>
+      <textarea class="rf-input" id="submit-benefits" rows="3" placeholder="ما الذي اكتسبته من هذا الأسبوع؟">${r.submittedContent?.benefits||''}</textarea>
+      <div class="rf-label">5) اقتراحات للتطوير</div>
+      <textarea class="rf-input" id="submit-suggestions" rows="2" placeholder="اقتراحاتك لتحسين برنامج التدريب...">${r.submittedContent?.suggestions||''}</textarea>
+    </div>`;
+  document.getElementById('modal-report-footer').innerHTML=`
+    <button class="btn-action btn-primary" onclick="submitReport('${sid}','${rid}')">رفع التقرير ⬆</button>
+    <button class="btn-action" style="background:#EEE;color:#555;" onclick="closeModal('modal-report')">إلغاء</button>`;
+  openModal('modal-report');
+}
+
+function submitReport(sid, rid){
+  const goal=document.getElementById('submit-goal')?.value.trim();
+  const tasks=document.getElementById('submit-tasks')?.value.trim();
+  const programs=document.getElementById('submit-programs')?.value.trim();
+  const benefits=document.getElementById('submit-benefits')?.value.trim();
+  const suggestions=document.getElementById('submit-suggestions')?.value.trim();
+  if(!goal||!tasks){toast('يرجى ملء الهدف والمهام على الأقل');return;}
+  const reps=DEMO_REPORTS[sid];
+  const r=reps.find(x=>x.id===rid);
+  if(r){r.status='قيد التنفيذ';r.submittedContent={goal,tasks,programs,benefits,suggestions};}
+  closeModal('modal-report');
+  buildStudentDash();
+  toast('✅ تم رفع التقرير بنجاح — سيُراجعه المشرف الميداني');
+}
+
+function openStudentFinal(){
+  const fs=FINAL_REPORTS[currentUser.id]||{status:'none'};
+  document.getElementById('modal-final-title').textContent='التقرير النهائي';
+  document.getElementById('modal-final-body').innerHTML=`
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px;">قم بملء بيانات تقريرك النهائي وفق النموذج المعتمد من الكلية.</p>
+    <div class="report-form-section">
+      <h4>مكونات التقرير النهائي</h4>
+      <div style="background:#F7F5FD;border-radius:12px;padding:14px;font-size:13.5px;line-height:2.2;margin-bottom:16px;">
+        أولاً: صفحة العنوان | ثانياً: المستخلص | ثالثاً: قائمة المحتويات<br>
+        رابعاً: قائمة الجداول والأشكال | خامساً: المقدمة | سادساً: متن التقرير<br>
+        سابعاً: الخلاصة (النتائج) | ثامناً: التوصيات | تاسعاً: المراجع | عاشراً: الملاحق
+      </div>
+    </div>
+    <div class="report-form-section">
+      <h4>بيانات التقرير</h4>
+      <div class="rf-label">عنوان التقرير النهائي</div>
+      <input class="rf-input" id="fin-title" type="text" placeholder="عنوان محدد يعكس موضوع التقرير" value="${fs.title||''}">
+      <div class="rf-label">المستخلص</div>
+      <textarea class="rf-input" id="fin-abstract" rows="4" placeholder="ملخص موجز يشمل موضوع التقرير وأهدافه ونتائجه...">${fs.abstract||''}</textarea>
+      <div class="rf-label">رفع ملف التقرير (PDF أو Word)</div>
+      <div class="file-upload-area" onclick="document.getElementById('fin-file').click()">
+        <input type="file" id="fin-file" accept=".pdf,.docx,.doc" onchange="document.getElementById('fin-fname').textContent='✅ '+this.files[0]?.name">
+        <div style="font-size:28px;margin-bottom:6px;">📄</div>
+        <div style="font-weight:700;color:var(--purple);">اضغط لرفع الملف</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">PDF أو Word — الحد الأقصى 20MB</div>
+        <div id="fin-fname" style="color:var(--green);font-weight:600;margin-top:6px;font-size:13px;">${fs.fileName?'✅ '+fs.fileName:''}</div>
+      </div>
+    </div>`;
+  document.getElementById('modal-final-footer').innerHTML=`
+    <button class="btn-action btn-primary" onclick="submitStudentFinal()">إرسال للمشرف الميداني 📤</button>
+    <button class="btn-action" style="background:#EEE;color:#555;" onclick="closeModal('modal-final')">إلغاء</button>`;
+  openModal('modal-final');
+}
+
+function submitStudentFinal(){
+  const title=document.getElementById('fin-title')?.value.trim();
+  const abstract=document.getElementById('fin-abstract')?.value.trim();
+  const fileName=document.getElementById('fin-file')?.files[0]?.name||'';
+  if(!title||!abstract){toast('يرجى ملء العنوان والمستخلص');return;}
+  FINAL_REPORTS[currentUser.id]={status:'sent',title,abstract,fileName,supervisorEval:null};
+  closeModal('modal-final');
+  buildStudentDash();
+  toast('✅ تم إرسال التقرير النهائي للمشرف الميداني');
+}
+
+/* ─────── ADVISOR ─────── */
+function buildAdvisorDash(){
+  const u=currentUser;
+  setEl('adv-name-hdr',u.name||'المرشد');
+  setEl('adv-avatar',(u.name||'م')[0]);
+  advStudents=Object.entries(DEMO_USERS).filter(([,x])=>x.role==='student'&&(x.advisorId===u.id||x.advisorId==='advisor1')).map(([id,x])=>({id,...x}));
+  if(!advStudents.length) advStudents=Object.entries(DEMO_USERS).filter(([,x])=>x.role==='student').map(([id,x])=>({id,...x}));
+  let tot=0,dn=0;
+  advStudents.forEach(s=>{const r=getReports(s.id);tot+=r.length;dn+=r.filter(x=>x.status==='مكتمل').length;});
+  const rate=tot?Math.round(dn/tot*100):0;
+  setEl('adv-total',tot);setEl('adv-rate',rate+'%');setEl('adv-sub',dn);setEl('adv-cnt',advStudents.length);
+  advShowAll=false;advSelectedStudent=null;
+  renderAdvList();
+  document.getElementById('adv-detail-card').style.display='none';
+  renderAdvFinalList();
+}
+function renderAdvList(){
+  const SHOW=3; const toShow=advShowAll?advStudents:advStudents.slice(0,SHOW);
+  setEl('adv-st-label',`${advStudents.length} طالب`);
+  document.getElementById('adv-expand-btn').textContent=advShowAll&&advStudents.length>SHOW?'−':'+';
+  document.getElementById('adv-students-list').innerHTML=toShow.map(s=>{
+    const r=getReports(s.id);const dn=r.filter(x=>x.status==='مكتمل').length;const pct=r.length?Math.round(dn/r.length*100):0;
+    const sel=advSelectedStudent===s.id?' selected':'';
+    return`<div class="student-row${sel}" onclick="advSelectStudent('${s.id}')">
+      <div class="s-avatar">${s.name[0]}</div>
+      <div class="s-info"><div class="s-name">${s.name}</div><div class="s-email">${s.email}</div></div>
+      <div style="min-width:160px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;font-weight:700;color:var(--purple);">${pct}%</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">${dn}/${r.length} مكتملة</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleAdvStudents(){if(advStudents.length<=3)return;advShowAll=!advShowAll;renderAdvList();}
+function advSelectStudent(sid){advSelectedStudent=sid;advShowRemaining=false;renderAdvList();renderAdvDetail(sid);}
+function renderAdvDetail(sid){
+  const s=advStudents.find(x=>x.id===sid);if(!s)return;
+  const reps=getReports(sid);const rem=reps.filter(r=>r.status!=='مكتمل');
+  const card=document.getElementById('adv-detail-card');
+  setEl('adv-detail-name',`تفاصيل تقدم — ${s.name}`);
+  const rb=document.getElementById('adv-rem-btn');
+  rb.textContent=advShowRemaining?`− إخفاء (${rem.length})`:`+ التقارير المتبقية (${rem.length})`;
+  const toShow=advShowRemaining?reps:reps.filter(r=>r.status==='مكتمل');
+  card.style.display='block';
+  document.getElementById('adv-detail-container').innerHTML=`
+    <div class="table-wrap"><table>
+      <thead><tr><th>التقرير</th><th>تاريخ الاستحقاق</th><th>الحالة</th><th>تقييم هيئة التدريس</th><th>تقييم المرشد (/5)</th><th>إجراء</th></tr></thead>
+      <tbody>${toShow.map(r=>`
+        <tr>
+          <td>${r.reportTitle}</td>
+          <td style="direction:ltr;text-align:right;">${r.dueDate}</td>
+          <td>${badge(r.status)}</td>
+          <td>${r.supervisorStatus?badge(r.supervisorStatus):'<span style="color:var(--muted);">—</span>'}</td>
+          <td>${stars(r.rating)}</td>
+          <td>
+            ${r.status==='مكتمل'?`<button class="btn-action btn-sm btn-view" onclick="openAdvRate('${sid}','${r.id}')">تقييم النجوم ✏️</button>`:'<span style="color:var(--muted);font-size:12px;">—</span>'}
+            <div class="eval-form" id="eval-${r.id}">
+              <div class="eval-row">
+                <div id="adv-stars-${r.id}" class="stars-wrap" style="margin-bottom:6px;"></div>
+                <textarea id="adv-comment-${r.id}" class="rf-input" style="margin-bottom:8px;" rows="2" placeholder="تعليق...">${r.comment||''}</textarea>
+              </div>
+              <button class="btn-action btn-sm btn-primary" onclick="saveAdvRate('${sid}','${r.id}')">حفظ التقييم</button>
+            </div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function toggleAdvRemaining(){advShowRemaining=!advShowRemaining;if(advSelectedStudent)renderAdvDetail(advSelectedStudent);}
+function openAdvRate(sid,rid){
+  const form=document.getElementById('eval-'+rid);if(!form)return;
+  const open=form.classList.toggle('open');
+  if(open){
+    const r=getReports(sid).find(x=>x.id===rid);
+    const container=document.getElementById('adv-stars-'+rid);
+    if(container) renderInteractiveStars(container,r?.rating||0,(val)=>{window['_advStar_'+rid]=val;});
+  }
+}
+function renderInteractiveStars(container,current,onChange){
+  container.innerHTML=[1,2,3,4,5].map(i=>`<span class="star${current>=i?' active':''}" data-v="${i}"
+    onclick="this.parentNode.querySelectorAll('.star').forEach((s,si)=>{s.classList.toggle('active',si<${i});});(${onChange.toString()})(${i});"
+    onmouseover="this.parentNode.querySelectorAll('.star').forEach((s,si)=>{s.classList.toggle('hover',si<${i});});"
+    onmouseout="this.parentNode.querySelectorAll('.star').forEach(s=>s.classList.remove('hover'));">★</span>`).join('');
+}
+function saveAdvRate(sid,rid){
+  const rating=window['_advStar_'+rid]||parseInt(document.querySelector(`#adv-stars-${rid} .star.active:last-of-type`)?.dataset.v||0);
+  const comment=(document.getElementById('adv-comment-'+rid)?.value||'').trim();
+  const r=getReports(sid).find(x=>x.id===rid);
+  if(!r){toast('لم يتم العثور على التقرير');return;}
+  if(!rating){toast('يرجى اختيار تقييم');return;}
+  r.rating=rating;r.comment=comment;
+  document.getElementById('eval-'+rid)?.classList.remove('open');
+  renderAdvDetail(sid);buildAdvisorDash();
+  toast(`✅ تم حفظ التقييم: ${'★'.repeat(rating)} (${rating}/5)`);
+}
+function renderAdvFinalList(){
+  const el=document.getElementById('adv-final-list');
+  const items=Object.entries(FINAL_REPORTS).filter(([,f])=>f.status==='approved');
+  if(!items.length){el.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px;">لا توجد تقارير نهائية محالة إليك بعد</p>';return;}
+  el.innerHTML=items.map(([sid,f])=>{
+    const u=DEMO_USERS[sid];
+    return`<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--border);margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="s-avatar">${(u?.name||'?')[0]}</div>
+        <div style="flex:1;"><div style="font-weight:700;">${u?.name||sid}</div>
+          <div style="font-size:12px;color:var(--muted);">${f.title||'—'}</div></div>
+        ${badge('معتمد')}
+        <button class="btn-action btn-sm btn-view" onclick="viewFinalModal('${sid}')">عرض</button>
+      </div>
+      ${f.supervisorEval?`<div style="margin-top:10px;padding:10px;background:#fff;border-radius:8px;font-size:13px;"><strong>تقييم المشرف:</strong> ${stars(f.supervisorEval.overall)} — ${f.supervisorEval.comment||'—'}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+/* ─────── FACULTY ─────── */
+function buildFacultyDash(){
+  const u=currentUser;
+  setEl('fac-name-hdr',u.name||'عضو هيئة التدريس');
+  setEl('fac-avatar',(u.name||'ه')[0]);
+  facStudents=Object.entries(DEMO_USERS).filter(([,x])=>x.role==='student').map(([id,x])=>({id,...x}));
+  let tot=0,dn=0,rev=0;
+  facStudents.forEach(s=>{const r=getReports(s.id);tot+=r.length;dn+=r.filter(x=>x.status==='مكتمل').length;rev+=r.filter(x=>x.status==='مكتمل'&&x.rating==null).length;});
+  const rate=tot?Math.round(dn/tot*100):0;
+  setEl('fac-cnt',facStudents.length);setEl('fac-done',dn);setEl('fac-rev',rev);setEl('fac-rate',rate+'%');
+  facShowAll=false;facSelectedStudent=null;
+  renderFacList();
+  document.getElementById('fac-detail-card').style.display='none';
+  renderFacFinalList();
+}
+function renderFacList(){
+  const SHOW=3;const toShow=facShowAll?facStudents:facStudents.slice(0,SHOW);
+  document.getElementById('fac-expand-btn').textContent=facShowAll&&facStudents.length>SHOW?'−':'+';
+  document.getElementById('fac-students-list').innerHTML=toShow.map(s=>{
+    const r=getReports(s.id);const dn=r.filter(x=>x.status==='مكتمل').length;const sel=facSelectedStudent===s.id?' selected':'';
+    return`<div class="student-row${sel}" onclick="facSelectStudent('${s.id}')">
+      <div class="s-avatar">${s.name[0]}</div>
+      <div class="s-info"><div class="s-name">${s.name}</div><div class="s-email">${s.email}</div></div>
+      <div class="s-meta">${dn}/${r.length} تقرير مكتمل</div>
+    </div>`;
+  }).join('');
+}
+function toggleFacStudents(){if(facStudents.length<=3)return;facShowAll=!facShowAll;renderFacList();}
+function facSelectStudent(sid){facSelectedStudent=sid;facShowRemaining=false;renderFacList();renderFacDetail(sid);}
+function renderFacDetail(sid){
+  const s=facStudents.find(x=>x.id===sid);if(!s)return;
+  const reps=getReports(sid);const rem=reps.filter(r=>r.status!=='مكتمل');
+  const card=document.getElementById('fac-detail-card');
+  setEl('fac-detail-name',`تقارير — ${s.name}`);
+  const rb=document.getElementById('fac-rem-btn');
+  rb.textContent=facShowRemaining?`− إخفاء (${rem.length})`:`+ التقارير المتبقية (${rem.length})`;
+  const toShow=facShowRemaining?reps:reps.filter(r=>r.status==='مكتمل');
+  card.style.display='block';
+  document.getElementById('fac-detail-container').innerHTML=`
+    <div class="table-wrap"><table>
+      <thead><tr><th>التقرير</th><th>تاريخ الاستحقاق</th><th>الحالة</th><th>التقييم (/5)</th><th>عرض</th></tr></thead>
+      <tbody>${toShow.map(r=>`
+        <tr>
+          <td>${r.reportTitle}</td>
+          <td style="direction:ltr;text-align:right;">${r.dueDate}</td>
+          <td>${badge(r.status)}</td>
+          <td>${stars(r.rating)}</td>
+          <td><button class="btn-action btn-sm btn-view" onclick="openReportView('${sid}','${r.id}')">عرض التقرير 📄</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function toggleFacRemaining(){facShowRemaining=!facShowRemaining;if(facSelectedStudent)renderFacDetail(facSelectedStudent);}
+function renderFacFinalList(){
+  const el=document.getElementById('fac-final-list');
+  const items=Object.entries(FINAL_REPORTS).filter(([,f])=>f.status==='sent'||f.status==='approved');
+  if(!items.length){el.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px;">لا توجد تقارير نهائية مُقدَّمة بعد</p>';return;}
+  el.innerHTML=items.map(([sid,f])=>{
+    const u=DEMO_USERS[sid];
+    return`<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--border);margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="s-avatar">${(u?.name||'?')[0]}</div>
+      <div style="flex:1;"><div style="font-weight:700;">${u?.name||sid}</div>
+        <div style="font-size:12px;color:var(--muted);">${f.title||'—'}</div></div>
+      ${badge(f.status==='approved'?'معتمد':'بانتظار المشرف')}
+      <button class="btn-action btn-sm btn-view" onclick="viewFinalModal('${sid}')">عرض</button>
+    </div>`;
+  }).join('');
+}
+
+/* Open report view modal (faculty / supervisor) */
+function openReportView(sid, rid){
+  const u=DEMO_USERS[sid];
+  const r=getReports(sid).find(x=>x.id===rid);
+  if(!r||!u)return;
+  const c=r.submittedContent||{};
+  document.getElementById('modal-report-title').textContent=`${r.reportTitle} — ${u.name}`;
+  document.getElementById('modal-report-body').innerHTML=`
+    <div class="report-form-section">
+      <h4>بيانات الطالب والتدريب</h4>
+      <div class="report-info-grid">
+        <div class="rinfo"><div class="rinfo-label">اسم الطالب</div><div class="rinfo-val">${u.name}</div></div>
+        <div class="rinfo"><div class="rinfo-label">القسم العلمي</div><div class="rinfo-val">${u.dept||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">جهة التدريب</div><div class="rinfo-val">${u.company||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">القسم المُدرَّب فيه</div><div class="rinfo-val">${u.companyDept||'—'}</div></div>
+        <div class="rinfo"><div class="rinfo-label">رقم الأسبوع</div><div class="rinfo-val">${r.weekNum}</div></div>
+        <div class="rinfo"><div class="rinfo-label">الفترة</div><div class="rinfo-val" style="direction:ltr;">من ${r.dateFrom} إلى ${r.dateTo}</div></div>
+      </div>
+    </div>
+    <div class="report-form-section">
+      <h4>تفاصيل التدريب</h4>
+      <div class="rf-label">1) الهدف</div><div class="rf-val">${c.goal||'لم يُدخَل بعد'}</div>
+      <div class="rf-label">2) المهام</div><div class="rf-val" style="white-space:pre-line;">${c.tasks||'—'}</div>
+      <div class="rf-label">3) البرامج</div><div class="rf-val">${c.programs||'—'}</div>
+      <div class="rf-label">4) الفائدة</div><div class="rf-val">${c.benefits||'—'}</div>
+      <div class="rf-label">5) الاقتراحات</div><div class="rf-val">${c.suggestions||'—'}</div>
+    </div>
+    <div class="report-form-section">
+      <h4>تقييم هيئة التدريس</h4>
+      ${r.rating!=null?`<p style="margin-bottom:10px;">${stars(r.rating,20)} التقييم الحالي</p>`:''}
+      <div style="margin-bottom:8px;font-size:13px;font-weight:700;">أعط تقييماً من 5 نجوم:</div>
+      <div class="stars-wrap" id="modal-stars-${rid}" style="margin-bottom:10px;"></div>
+      <span id="modal-rating-lbl-${rid}" style="font-size:13px;color:var(--purple);font-weight:700;">${r.rating?r.rating+'/5':''}</span>
+    </div>`;
+  document.getElementById('modal-report-footer').innerHTML=`
+    <button class="btn-action btn-primary" onclick="saveFacRating('${sid}','${rid}')">حفظ التقييم ⭐</button>
+    <button class="btn-action" style="background:#EEE;color:#555;" onclick="closeModal('modal-report')">إغلاق</button>`;
+  openModal('modal-report');
+  // render stars after modal opens
+  setTimeout(()=>{
+    const container=document.getElementById(`modal-stars-${rid}`);
+    if(container) renderInteractiveStars(container,r.rating||0,val=>{
+      pendingRating=val;
+      const lbl=document.getElementById(`modal-rating-lbl-${rid}`);
+      if(lbl)lbl.textContent=val+'/5';
+    });
+  },50);
+  pendingRating=null;
+  window._modalSid=sid;window._modalRid=rid;
+}
+function saveFacRating(sid,rid){
+  const val=pendingRating;
+  if(!val){toast('يرجى اختيار تقييم');return;}
+  const r=getReports(sid).find(x=>x.id===rid);if(!r)return;
+  r.rating=val;pendingRating=null;
+  closeModal('modal-report');
+  buildFacultyDash();
+  if(facSelectedStudent)renderFacDetail(facSelectedStudent);
+  toast(`✅ تم حفظ التقييم: ${'★'.repeat(val)} (${val}/5)`);
+}
+function viewFinalModal(sid){
+  const f=FINAL_REPORTS[sid];const u=DEMO_USERS[sid];if(!f||!u)return;
+  document.getElementById('modal-report-title').textContent=`التقرير النهائي — ${u.name}`;
+  document.getElementById('modal-report-body').innerHTML=`
+    <div class="report-form-section">
+      <h4>بيانات الطالب</h4>
+      <div class="report-info-grid">
+        <div class="rinfo"><div class="rinfo-label">اسم الطالب</div><div class="rinfo-val">${u.name}</div></div>
+        <div class="rinfo"><div class="rinfo-label">الحالة</div><div class="rinfo-val">${badge(f.status==='approved'?'معتمد':'بانتظار المراجعة')}</div></div>
+      </div>
+    </div>
+    <div class="report-form-section">
+      <h4>عنوان التقرير</h4><div class="rf-val">${f.title||'—'}</div>
+      <h4 style="margin-top:14px;">المستخلص</h4><div class="rf-val">${f.abstract||'—'}</div>
+    </div>
+    ${f.supervisorEval?`<div class="report-form-section"><h4>تقييم المشرف الميداني</h4><div class="rf-val">التقييم الكلي: ${stars(f.supervisorEval.overall,18)}<br>الملاحظات: ${f.supervisorEval.comment||'—'}</div></div>`:''}`;
+  document.getElementById('modal-report-footer').innerHTML=`<button class="btn-action" style="background:#EEE;color:#555;" onclick="closeModal('modal-report')">إغلاق</button>`;
+  openModal('modal-report');
+}
+
+/* ─────── SUPERVISOR ─────── */
+function buildSupDash(){
+  const u=currentUser;
+  setEl('sup-name-hdr',u.name||'مشرف التدريب');
+  setEl('sup-avatar',(u.name||'م')[0]);
+  supStudents=Object.entries(DEMO_USERS).filter(([,x])=>x.role==='student').map(([id,x])=>({id,...x}));
+  setEl('sup-total',supStudents.length);
+  supShowAll=false;supSelectedStudent=null;
+  renderSupList();
+  document.getElementById('sup-student-reports-card').style.display='none';
+  document.getElementById('sup-final-panel').style.display='none';
+  // Advisors list
+  document.getElementById('advisors-list').innerHTML=DEMO_ADVISORS.map(a=>`
+    <div class="advisor-contact-row">
+      <div class="adv-avatar">${a.name[3]||a.name[0]}</div>
+      <div class="adv-info">
+        <div class="adv-name">${a.name}</div>
+        <div class="adv-email-text">📧 ${a.email}</div>
+        <div class="adv-count">يُشرف على ${a.studentIds?.length||0} طلاب</div>
+      </div>
+      <button class="btn-action btn-primary" onclick="openChatWith('${a.id}','${a.name}','supervisor')">💬 مراسلة</button>
+    </div>`).join('');
+}
+function renderSupList(){
+  const SHOW=4;const toShow=supShowAll?supStudents:supStudents.slice(0,SHOW);
+  setEl('sup-st-label',`${supStudents.length} طالب`);
+  document.getElementById('sup-expand-btn').textContent=supShowAll&&supStudents.length>SHOW?'−':'+';
+  document.getElementById('sup-students-list').innerHTML=toShow.map(s=>{
+    const r=getReports(s.id);const sub=r.filter(x=>x.status!=='معلق').length;const pend=r.filter(x=>!x.supervisorStatus&&x.status!=='معلق').length;
+    const sel=supSelectedStudent===s.id?' selected':'';
+    return`<div class="student-row${sel}" onclick="supSelectStudent('${s.id}')">
+      <div class="s-avatar">${s.name[0]}</div>
+      <div class="s-info"><div class="s-name">${s.name}</div><div class="s-email">${s.email}</div></div>
+      <div class="s-meta">${sub} مُرسَل${pend>0?` — <span style="color:#D94040;">${pend} بانتظار الاعتماد</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+function toggleSupStudents(){if(supStudents.length<=4)return;supShowAll=!supShowAll;renderSupList();}
+function supSelectStudent(sid){supSelectedStudent=sid;renderSupList();renderSupReports(sid);}
+function renderSupReports(sid){
+  const s=supStudents.find(x=>x.id===sid);if(!s)return;
+  const reps=getReports(sid).filter(r=>r.status!=='معلق');
+  const card=document.getElementById('sup-student-reports-card');
+  setEl('sup-reports-title',`تقارير — ${s.name}`);
+  card.style.display='block';
+  if(!reps.length){document.getElementById('sup-reports-container').innerHTML='<p style="color:var(--muted);padding:16px;text-align:center;">لا توجد تقارير مُرسَلة بعد</p>';card.scrollIntoView({behavior:'smooth',block:'nearest'});return;}
+  document.getElementById('sup-reports-container').innerHTML=`
+    <div class="table-wrap"><table>
+      <thead><tr><th>التقرير</th><th>الأسبوع</th><th>تاريخ الاستحقاق</th><th>الحالة</th><th>الاعتماد</th><th>إجراء</th></tr></thead>
+      <tbody>${reps.map(r=>`
+        <tr>
+          <td><button class="btn-action btn-sm btn-view" onclick="openReportView('${sid}','${r.id}')">${r.reportTitle}</button></td>
+          <td>الأسبوع ${r.weekNum}</td>
+          <td style="direction:ltr;text-align:right;">${r.dueDate}</td>
+          <td>${badge(r.status)}</td>
+          <td>${r.supervisorStatus?badge(r.supervisorStatus):'<span style="color:var(--muted);">بانتظار المراجعة</span>'}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">${!r.supervisorStatus?`
+            <button class="btn-action btn-sm btn-approve" onclick="supApprove('${sid}','${r.id}',true)">اعتماد ✅</button>
+            <button class="btn-action btn-sm btn-decline" onclick="supApprove('${sid}','${r.id}',false)">رفض ❌</button>`
+            :'<span style="font-size:12px;color:var(--muted);">تمت المعالجة</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function supApprove(sid,rid,approve){
+  const r=getReports(sid).find(x=>x.id===rid);if(!r)return;
+  r.supervisorStatus=approve?'معتمد':'مرفوض';
+  renderSupReports(sid);renderSupList();
+  toast(approve?`✅ تم اعتماد ${r.reportTitle} وإحالته للمرشد الأكاديمي`:`❌ تم رفض ${r.reportTitle}`);
+}
+function toggleAdvisorsPanel(){
+  advisorsPanelOpen=!advisorsPanelOpen;
+  document.getElementById('advisors-panel').style.display=advisorsPanelOpen?'block':'none';
+  document.getElementById('sup-contact-card').classList.toggle('active-card',advisorsPanelOpen);
+}
+function openSupFinalPanel(){
+  const panel=document.getElementById('sup-final-panel');
+  panel.style.display='block';
+  const items=Object.entries(FINAL_REPORTS).filter(([,f])=>f.status==='sent'||f.status==='approved');
+  if(!items.length){document.getElementById('sup-final-container').innerHTML='<p style="color:var(--muted);text-align:center;padding:20px;">لا توجد تقارير نهائية مُقدَّمة بعد</p>';panel.scrollIntoView({behavior:'smooth',block:'nearest'});return;}
+  document.getElementById('sup-final-container').innerHTML=items.map(([sid,f])=>{
+    const u=DEMO_USERS[sid];
+    return`<div style="padding:16px;border-radius:12px;background:#F9F7FF;border:1px solid var(--border);margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <div class="s-avatar">${(u?.name||'?')[0]}</div>
+        <div style="flex:1;"><div style="font-weight:700;">${u?.name||sid}</div>
+          <div style="font-size:13px;color:var(--muted);">العنوان: ${f.title||'—'}</div></div>
+        ${badge(f.status==='approved'?'معتمد':'بانتظار المراجعة')}
+      </div>
+      <div style="font-size:13px;padding:10px;background:#fff;border-radius:8px;margin-bottom:12px;"><strong>المستخلص:</strong> ${f.abstract||'—'}</div>
+      ${f.status==='sent'?`
+        <div style="border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:10px;">رفع التقييم النهائي للطالب</div>
+          <div class="sup-eval-grid">
+            <div class="sup-eval-item"><label>الأداء العام</label><select id="se-overall-${sid}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select></div>
+            <div class="sup-eval-item"><label>الالتزام والحضور</label><select id="se-attend-${sid}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select></div>
+            <div class="sup-eval-item"><label>جودة العمل</label><select id="se-quality-${sid}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select></div>
+            <div class="sup-eval-item"><label>السلوك المهني</label><select id="se-behavior-${sid}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select></div>
+          </div>
+          <textarea class="rf-input" id="se-comment-${sid}" rows="2" placeholder="ملاحظات إضافية..."></textarea>
+          <button class="btn-action btn-primary" style="margin-top:10px;" onclick="submitSupEval('${sid}')">إرسال التقييم للمرشد الأكاديمي 📤</button>
+        </div>`
+        :`<div style="background:#D4EDDA;border-radius:8px;padding:10px;font-size:13px;color:#1B6B35;">✅ تم إرسال التقييم النهائي — ${f.supervisorEval?stars(f.supervisorEval.overall,14):''}</div>`}
+    </div>`;
+  }).join('');
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function submitSupEval(sid){
+  const overall=parseInt(document.getElementById(`se-overall-${sid}`)?.value)||5;
+  const comment=(document.getElementById(`se-comment-${sid}`)?.value||'').trim();
+  FINAL_REPORTS[sid].status='approved';
+  FINAL_REPORTS[sid].supervisorEval={overall,comment};
+  openSupFinalPanel();
+  renderAdvFinalList();
+  renderFacFinalList();
+  toast('✅ تم إرسال التقييم النهائي للمرشد الأكاديمي بنجاح');
+}
+
+/* ════════ CHAT SYSTEM ════════ */
+function getConvId(id1, id2){return [id1,id2].sort().join('_');}
+function getConvMsgs(convId){return DEMO_MSGS[convId]||[];}
+
+// Role-based contacts
+function getChatContacts(role){
+  if(role==='student') return [{id:currentUser.advisorId||'advisor1',name:DEMO_USERS[currentUser.advisorId||'advisor1']?.name||'المرشد الأكاديمي',role:'المرشد الأكاديمي'}];
+  if(role==='advisor') return [
+    ...Object.entries(DEMO_USERS).filter(([,u])=>u.role==='student'&&(u.advisorId===currentUser.id||u.advisorId==='advisor1')).map(([id,u])=>({id,name:u.name,role:'طالب'})),
+    {id:'sup1',name:'م. أحمد الرشيدي',role:'مشرف التدريب'},
+  ];
+  if(role==='faculty') return [{id:'sup1',name:'م. أحمد الرشيدي',role:'مشرف التدريب'},...DEMO_ADVISORS.map(a=>({id:a.id,name:a.name,role:'مرشد أكاديمي'}))];
+  if(role==='supervisor') return [...DEMO_ADVISORS.map(a=>({id:a.id,name:a.name,role:'مرشد أكاديمي'})),{id:'faculty1',name:'أ. سلمى البشري',role:'هيئة التدريس'}];
+  return [];
+}
+
+function openChat(role){
+  const contacts=getChatContacts(role);
+  renderChatContacts(contacts);
+  chatCurrentConvId=null;
+  document.getElementById('chat-messages-area').innerHTML='<div class="chat-empty">اختر محادثة من القائمة</div>';
+  openModal('modal-chat');
+}
+function openChatWith(contactId, contactName, callerRole){
+  openChat(callerRole);
+  setTimeout(()=>selectChatContact(contactId, contactName, callerRole),100);
+}
+function renderChatContacts(contacts){
+  const me=currentUser;
+  document.getElementById('chat-contacts-list').innerHTML=contacts.map(c=>{
+    const convId=getConvId(me.id,c.id);
+    const msgs=getConvMsgs(convId);
+    const last=msgs[msgs.length-1];
+    return`<div class="chat-contact-item${chatCurrentConvId===convId?' active':''}" onclick="selectChatContact('${c.id}','${c.name}','${currentRole}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="chat-contact-name">${c.name}</div>
+      </div>
+      <div class="chat-contact-role">${c.role}</div>
+      ${last?`<div class="chat-contact-preview">${last.text}</div>`:'<div class="chat-contact-preview" style="font-style:italic;">لا توجد رسائل</div>'}
+    </div>`;
+  }).join('');
+}
+function selectChatContact(contactId, contactName, callerRole){
+  const me=currentUser;
+  const convId=getConvId(me.id, contactId);
+  chatCurrentConvId=convId;
+  if(!DEMO_MSGS[convId]) DEMO_MSGS[convId]=[];
+  // Update contact list active state
+  document.querySelectorAll('.chat-contact-item').forEach((el,i)=>{el.classList.remove('active');if(el.onclick?.toString().includes(contactId))el.classList.add('active');});
+  renderChatMessages(convId, me.id);
+  document.getElementById('chat-input').focus();
+}
+function renderChatMessages(convId, myId){
+  const msgs=getConvMsgs(convId);
+  const area=document.getElementById('chat-messages-area');
+  if(!msgs.length){area.innerHTML='<div class="chat-empty">ابدأ المحادثة بكتابة رسالتك</div>';return;}
+  area.innerHTML=msgs.map(m=>{
+    const mine=m.from===myId;
+    return`<div>
+      <div class="chat-msg ${mine?'mine':'theirs'}">${m.text}</div>
+      <div style="font-size:10px;color:var(--muted);padding:2px 4px;text-align:${mine?'left':'right'};">${mine?'أنت':'': m.fromName||''} · ${m.time}</div>
+    </div>`;
+  }).join('');
+  area.scrollTop=area.scrollHeight;
+}
+function sendMsg(){
+  const input=document.getElementById('chat-input');
+  const text=input?.value?.trim();
+  if(!text||!chatCurrentConvId)return;
+  const me=currentUser;
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  const msg={from:me.id,fromName:me.name||'أنت',text,time:timeStr};
+  if(!DEMO_MSGS[chatCurrentConvId])DEMO_MSGS[chatCurrentConvId]=[];
+  DEMO_MSGS[chatCurrentConvId].push(msg);
+  if(window.FB?.ready){
+    window.FB.addMessage(chatCurrentConvId,msg);
+  }
+  renderChatMessages(chatCurrentConvId,me.id);
+  input.value='';
+}
+
+/* ════════ USER MANAGEMENT ════════ */
+let allUsers = { ...DEMO_USERS }; // merged demo + firebase users
+let currentUserFilter = 'all';
+
+function openUserMgmt(){
+  // Reset form
+  ['um-name','um-email','um-password','um-dept','um-company','um-companyDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('um-role').value='';
+  document.getElementById('um-reportCount').value='10';
+  document.getElementById('um-student-fields').style.display='none';
+  document.getElementById('um-error').textContent='';
+  document.getElementById('um-success').style.display='none';
+  switchUmTab('add');
+  populateAdvisorDropdown();
+  openModal('modal-user-mgmt');
+}
+
+function switchUmTab(tab){
+  document.getElementById('um-add-panel').style.display  = tab==='add'  ? 'block':'none';
+  document.getElementById('um-list-panel').style.display = tab==='list' ? 'block':'none';
+  document.getElementById('tab-add').classList.toggle('active',  tab==='add');
+  document.getElementById('tab-list').classList.toggle('active', tab==='list');
+  if(tab==='list') renderUsersList('all');
+}
+
+function toggleUmRoleFields(){
+  const role = document.getElementById('um-role').value;
+  document.getElementById('um-student-fields').style.display = role==='student' ? 'block':'none';
+}
+
+function populateAdvisorDropdown(){
+  const sel = document.getElementById('um-advisor');
+  const advisors = Object.entries(allUsers).filter(([,u])=>u.role==='advisor');
+  sel.innerHTML = '<option value="">— اختر المرشد —</option>' +
+    advisors.map(([id,u])=>`<option value="${id}">${u.name}</option>`).join('');
+}
+
+async function createUser(){
+  const name     = document.getElementById('um-name')?.value.trim();
+  const email    = document.getElementById('um-email')?.value.trim();
+  const password = document.getElementById('um-password')?.value.trim();
+  const role     = document.getElementById('um-role')?.value;
+  const errEl    = document.getElementById('um-error');
+  const sucEl    = document.getElementById('um-success');
+
+  errEl.textContent=''; sucEl.style.display='none';
+
+  if(!name||!email||!password||!role){ errEl.textContent='يرجى ملء جميع الحقول الإلزامية (*)'; return; }
+  if(password.length < 8){ errEl.textContent='كلمة المرور يجب أن تكون 8 أحرف على الأقل'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent='صيغة البريد الإلكتروني غير صحيحة'; return; }
+
+  const userData = { name, email, role };
+
+  if(role==='student'){
+    userData.dept        = document.getElementById('um-dept')?.value.trim()||'';
+    userData.advisorId   = document.getElementById('um-advisor')?.value||'';
+    userData.company     = document.getElementById('um-company')?.value.trim()||'';
+    userData.companyDept = document.getElementById('um-companyDept')?.value.trim()||'';
+    userData.reportCount = parseInt(document.getElementById('um-reportCount')?.value)||10;
+  }
+
+  const btn = document.querySelector('#um-add-panel .btn-primary');
+  btn.disabled=true; btn.textContent='جارٍ الإنشاء...';
+
+  try {
+    let newUid;
+    if(window.FB?.ready){
+      // Create in Firebase Auth + Firestore
+      newUid = await window.FB.createUser(email, password, userData);
+      // Create empty reports in Firestore
+      if(role==='student'){
+        const reportNames=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر'];
+        const count = userData.reportCount||10;
+        for(let i=0;i<count&&i<10;i++){
+          await window.FB.setDoc(`reports/${newUid}_r${i+1}`,{
+            studentId:newUid, reportTitle:`التقرير ${reportNames[i]}`,
+            weekNum:i+1, dueDate:'', status:'معلق', rating:null, comment:''
+          });
+        }
+      }
+    } else {
+      // Demo mode — add to local state
+      newUid = 'user_' + Date.now();
+      allUsers[newUid] = { ...userData };
+      if(role==='student'){
+        DEMO_REPORTS[newUid] = makeReports(newUid, userData);
+        FINAL_REPORTS[newUid] = {status:'none',title:'',abstract:'',fileName:'',supervisorEval:null};
+      }
+    }
+
+    sucEl.innerHTML = `✅ تم إنشاء المستخدم بنجاح!<br><small>الاسم: ${name} | الدور: ${roleLabel(role)} | البريد: ${email}</small>`;
+    sucEl.style.display='block';
+    // Clear form
+    ['um-name','um-email','um-password','um-dept','um-company','um-companyDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('um-role').value='';
+    document.getElementById('um-student-fields').style.display='none';
+    // Refresh dashboards
+    if(currentRole==='supervisor') buildSupDash();
+    toast(`✅ تم إنشاء حساب ${name} بنجاح`);
+  } catch(e){
+    errEl.textContent = e.message?.includes('email-already-in-use')
+      ? '❌ هذا البريد الإلكتروني مسجّل مسبقاً'
+      : '❌ خطأ: ' + (e.message||'حاول مرة أخرى');
+  } finally {
+    btn.disabled=false; btn.textContent='إنشاء المستخدم وحفظه في قاعدة البيانات ✅';
+  }
+}
+
+function roleLabel(r){ return{student:'طالب',advisor:'مرشد أكاديمي',faculty:'عضو هيئة تدريس',supervisor:'مشرف التدريب'}[r]||r; }
+function roleBadgeClass(r){ return{student:'role-student',advisor:'role-advisor',faculty:'role-faculty',supervisor:'role-supervisor'}[r]||''; }
+
+function filterUsers(role){
+  currentUserFilter=role;
+  document.querySelectorAll('.um-filter').forEach(b=>b.classList.toggle('active',b.dataset.role===role));
+  renderUsersList(role);
+}
+
+async function renderUsersList(roleFilter){
+  const container = document.getElementById('um-users-table');
+  container.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px;">جارٍ التحميل...</p>';
+
+  let users = [];
+  if(window.FB?.ready){
+    try{ users = await window.FB.getAllUsers(); } catch(e){ users=[]; }
+  } else {
+    users = Object.entries(allUsers).map(([id,u])=>({id,...u}));
+  }
+
+  if(roleFilter!=='all') users = users.filter(u=>u.role===roleFilter);
+
+  if(!users.length){ container.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px;">لا يوجد مستخدمون</p>'; return; }
+
+  container.innerHTML = users.map(u=>`
+    <div class="um-user-row">
+      <div class="s-avatar" style="background:var(--purple);">${(u.name||'?')[0]}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:14px;">${u.name||'—'}</div>
+        <div style="font-size:12px;color:var(--muted);">${u.email||'—'}</div>
+        ${u.dept?`<div style="font-size:12px;color:var(--muted);">${u.dept}</div>`:''}
+        ${u.company?`<div style="font-size:12px;color:var(--muted);">🏢 ${u.company}${u.companyDept?' — '+u.companyDept:''}</div>`:''}
+      </div>
+      <span class="um-role-badge ${roleBadgeClass(u.role)}">${roleLabel(u.role)}</span>
+      <button class="btn-action btn-sm btn-decline" onclick="deleteUserConfirm('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')">🗑️ حذف</button>
+    </div>`).join('');
+}
+
+function deleteUserConfirm(uid, name){
+  if(!confirm(`هل أنت متأكد من حذف المستخدم "${name}"؟\nهذا الإجراء لا يمكن التراجع عنه.`)) return;
+  deleteUserById(uid, name);
+}
+
+async function deleteUserById(uid, name){
+  try{
+    if(window.FB?.ready){
+      await window.FB.deleteDoc(`users/${uid}`);
+    } else {
+      delete allUsers[uid];
+      delete DEMO_REPORTS[uid];
+      delete FINAL_REPORTS[uid];
+    }
+    toast(`🗑️ تم حذف المستخدم ${name}`);
+    renderUsersList(currentUserFilter);
+    if(currentRole==='supervisor') buildSupDash();
+  } catch(e){ toast('❌ فشل الحذف: '+e.message); }
+}
+
+
+function getReports(sid){return DEMO_REPORTS[sid]||DEMO_REPORTS['student1']||[];}
+function setEl(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+function setLoading(on){document.getElementById('loading-overlay').classList.toggle('active',on);}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',3500);
+}
+</script>
+</body>
+</html>
