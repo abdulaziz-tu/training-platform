@@ -1390,7 +1390,7 @@ function renderChatMessages(convId, myId){
     const mine=m.from===myId;
     return`<div>
       <div class="chat-msg ${mine?'mine':'theirs'}">${m.text}</div>
-      <div style="font-size:10px;color:var(--muted);padding:2px 4px;text-align:${mine?'left':'right'};">${mine?'أنت':'': m.fromName||''} · ${m.time}</div>
+      <div style="font-size:10px;color:var(--muted);padding:2px 4px;text-align:${mine?'left':'right'};">${mine?'أنت':m.fromName||''} · ${m.time}</div>
     </div>`;
   }).join('');
   area.scrollTop=area.scrollHeight;
