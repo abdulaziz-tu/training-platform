@@ -48,6 +48,7 @@ window.FB={
   watchStudents:(aid,cb)=>onSnapshot(query(collection(db,"users"),where("role","==","student"),where("advisorId","==",aid)),cb),
   watchAllStudents:(cb)=>onSnapshot(query(collection(db,"users"),where("role","==","student")),cb),
   watchAllAdvisors:(cb)=>onSnapshot(query(collection(db,"users"),where("role","==","advisor")),cb),
+  watchAllSupervisors:(cb)=>onSnapshot(query(collection(db,"users"),where("role","==","supervisor")),cb),
   watchReports:(sid,cb)=>onSnapshot(query(collection(db,"reports"),where("studentId","==",sid)),cb),
   watchMsgs:(cid,cb)=>onSnapshot(query(collection(db,"conversations",cid,"messages"),orderBy("ts")),cb),
   watchFinals:(cb)=>onSnapshot(collection(db,"finalReports"),cb),
@@ -323,6 +324,12 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
                 <option value="">— اختر المرشد —</option>
               </select>
             </div>
+            <div>
+              <div class="fl">مشرف التدريب</div>
+              <select class="fi" id="u-sup">
+                <option value="">— اختر مشرف التدريب —</option>
+              </select>
+            </div>
             <div><div class="fl">الرقم الجامعي</div><input class="fi" id="u-uid" type="text" placeholder="202112345"></div>
             <div><div class="fl">جهة التدريب</div><input class="fi" id="u-co" type="text" placeholder="شركة أرامكو"></div>
             <div>
@@ -514,7 +521,7 @@ let CU=null, CR=null, _unsub=[], _chatUnsub=null, _chatConvId=null;
 let _advStu=[], _advAll=false, _advRem=false, _advSel=null;
 let _supStu=[], _supAll=false, _supSel=null, _advPanOpen=false;
 let _chatCtx=[], _pStar=0;
-let _allAdvisors=[]; // for user creation dropdown
+let _allAdvisors=[], _allSupervisors=[]; // for user creation dropdown
 let _unreadConvs=new Set(); // conv IDs with unread for current user
 
 /* ══════════ HELPERS ══════════ */
@@ -791,6 +798,9 @@ function buildAdv(){
     _advStu=snap.docs.map(d=>({id:d.id,...d.data()}));
     setEl('adv-cnt',_advStu.length);setEl('adv-sl',`${_advStu.length} طالب`);
     renderAdvList();
+  }));
+  _unsub.push(window.FB.watchAllSupervisors(snap=>{
+    _allSupervisors=snap.docs.map(d=>({id:d.id,...d.data()}));
   }));
   _unsub.push(window.FB.watchFinals(snap=>{
     const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.status==='supervisor_approved'&&f.advisorId===CU.id);
@@ -1231,6 +1241,19 @@ function viewFinalMod(fid){
         ${f.file?.name?`<div class="rs"><h4>الملف المرفق</h4><div class="rv">📄 ${f.file.name} (${Math.round((f.file.size||0)/1024)}KB)
           ${f.file.base64?`<br><button class="btn b-s b-sm" style="margin-top:8px;" onclick="downloadFinalFile('${fid}')">⬇ تحميل</button>`:''}
         </div></div>`:''}
+        ${f.supervisorEval?`<div class="rs"><h4>📊 تقييم مشرف التدريب</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;background:#F0EBFB;border-radius:10px;padding:14px;margin-bottom:10px;">
+            <span>الأداء العام: <strong>${f.supervisorEval.overall}/5</strong></span>
+            <span>الالتزام: <strong>${f.supervisorEval.commitment}/5</strong></span>
+            <span>جودة العمل: <strong>${f.supervisorEval.quality}/5</strong></span>
+            <span>السلوك المهني: <strong>${f.supervisorEval.behavior}/5</strong></span>
+            <span>جودة التقرير: <strong>${f.supervisorEval.reportQuality}/5</strong></span>
+            <span>المعدل الكلي: <strong>${f.supervisorEval.average}/5</strong></span>
+          </div>
+          <div style="font-size:13px;margin-bottom:6px;">التوصية: <strong style="color:${f.supervisorEval.recommendation==='ناجح'?'#1B6B35':'#721C24'}">${f.supervisorEval.recommendation}</strong></div>
+          ${f.supervisorEval.comment?`<div style="font-size:12px;color:var(--m);">ملاحظة: ${f.supervisorEval.comment}</div>`:''}
+          <div style="font-size:11px;color:var(--m);margin-top:4px;">المقيّم: ${f.supervisorEval.evaluatorName||'—'}</div>
+        </div>`:''}
         ${f.declineComment?`<div class="rs"><h4>تعليق الرفض</h4><div class="rv" style="background:#FFF8E1;">${f.declineComment}</div></div>`:''}`;
       u();
     });
@@ -1245,9 +1268,13 @@ async function openUsrMgmt(){
   // Load advisors for student dropdown
   if(window.FB?.ready){
     const snap=await window.FB.getAllUsers();
-    _allAdvisors=snap.docs.map(d=>({id:d.id,...d.data()})).filter(u=>u.role==='advisor');
+    const allU=snap.docs.map(d=>({id:d.id,...d.data()}));
+    _allAdvisors=allU.filter(u=>u.role==='advisor');
+    _allSupervisors=allU.filter(u=>u.role==='supervisor');
     const sel=document.getElementById('u-adv');
     sel.innerHTML='<option value="">— اختر المرشد —</option>'+_allAdvisors.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    const supSel=document.getElementById('u-sup');
+    if(supSel)supSel.innerHTML='<option value="">— اختر مشرف التدريب —</option>'+_allSupervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
   swTab('add');openM('m-usr');
 }
@@ -1314,6 +1341,9 @@ async function createUser(){
       ud.trainingStartDate=document.getElementById('u-sd').value;
       const selAdv=_allAdvisors.find(a=>a.id===ud.advisorId);
       ud.advisorName=selAdv?.name||'';
+      ud.supervisorId=document.getElementById('u-sup')?.value||'';
+      const selSup=_allSupervisors.find(s=>s.id===ud.supervisorId);
+      ud.supervisorName=selSup?.name||'مشرف التدريب';
     }
     const uid=await window.FB.createAuth(em,pw);
     await window.FB.setUser(uid,ud);
@@ -1358,7 +1388,9 @@ function openEditUser(u){
     &nbsp;|&nbsp;<strong>البريد:</strong> ${u.email||'—'}</div>
   <div class="fl">الاسم الكامل *</div><input class="fi" id="eu-nm" type="text" value="${(u.name||'').replace(/"/g,'&quot;')}">`;
   if(isS){
-    html+=`<div class="fl">الرقم الجامعي</div><input class="fi" id="eu-uid" type="text" value="${u.univId||''}">
+    const advOpts=_allAdvisors.map(a=>`<option value="${a.id}"${u.advisorId===a.id?' selected':''}>${a.name}</option>`).join('');
+  const supOpts=_allSupervisors.map(s=>`<option value="${s.id}"${u.supervisorId===s.id?' selected':''}>${s.name}</option>`).join('');
+  html+=`<div class="fl">الرقم الجامعي</div><input class="fi" id="eu-uid" type="text" value="${u.univId||''}">
     <div class="fl">القسم العلمي</div>
     <select class="fi" id="eu-dp"><option value="">—</option>
       <option${u.dept==='نظم المعلومات الإدارية'?' selected':''}>نظم المعلومات الإدارية</option>
@@ -1372,6 +1404,10 @@ function openEditUser(u){
       <option${u.companyDept==='حماية البيانات'?' selected':''}>حماية البيانات</option>
       <option${u.companyDept==='امن سيبراني'?' selected':''}>امن سيبراني</option>
     </select>
+    <div class="fl">المرشد الأكاديمي</div>
+    <select class="fi" id="eu-adv"><option value="">— اختر مرشداً —</option>${advOpts}</select>
+    <div class="fl">مشرف التدريب</div>
+    <select class="fi" id="eu-sup"><option value="">— اختر مشرفاً —</option>${supOpts}</select>
     <div class="fl">تاريخ بدء التدريب</div><input class="fi" id="eu-sd" type="date" value="${u.trainingStartDate||''}">`;
   }
   html+='<div class="etxt" id="eu-er"></div>';
@@ -1391,6 +1427,10 @@ async function saveEditUser(uid,isS){
     upd.company=document.getElementById('eu-co')?.value.trim()||'';
     upd.companyDept=document.getElementById('eu-cd')?.value||'';
     upd.trainingStartDate=document.getElementById('eu-sd')?.value||'';
+    const newAdvId=document.getElementById('eu-adv')?.value||'';
+    if(newAdvId){upd.advisorId=newAdvId;const a=_allAdvisors.find(x=>x.id===newAdvId);upd.advisorName=a?.name||'';}
+    const newSupId=document.getElementById('eu-sup')?.value||'';
+    if(newSupId){upd.supervisorId=newSupId;const s=_allSupervisors.find(x=>x.id===newSupId);upd.supervisorName=s?.name||'';}
   }
   if(window.FB?.ready)await window.FB.updateUser(uid,upd);
   closeM('m-rep');toast('✅ تم حفظ التعديلات');
@@ -1410,7 +1450,7 @@ function getChatCtx(){
     // Students + supervisor
     return[
       ..._advStu.map(s=>({id:s.id,name:s.name,role:'طالب'})),
-      {id:'__sup__',name:'مشرف التدريب',role:'مشرف التدريب'}
+      ..._allSupervisors.map(sv=>({id:sv.id,name:sv.name||'مشرف التدريب',role:'مشرف التدريب'}))
     ];
   }
   if(CR==='supervisor'){
