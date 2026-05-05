@@ -1067,43 +1067,42 @@ function supSel(sid){
 
 function renderSupReps(s,reps){
   if(!reps.length){document.getElementById('sup-rct').innerHTML='<p style="color:var(--m);padding:16px;text-align:center;">لا توجد تقارير لهذا الطالب بعد</p>';return;}
-  document.getElementById('sup-rct').innerHTML=`
-    <div class="tw"><table>
-      <thead><tr><th>التقرير</th><th>الأسبوع</th><th>تاريخ الرفع</th><th>الحالة</th><th>اعتماد المشرف</th><th>إجراء</th></tr></thead>
-      <tbody>${reps.map(r=>{
-        const canAct=r.status==='مُرسَل';
-        const approved=r.supervisorStatus==='معتمد';
-        const declined=r.supervisorStatus==='مرفوض';
-        const dt=r.submittedAt?new Date(r.submittedAt).toLocaleDateString('ar-SA'):'—';
-        return\`<tr>
-          <td><button class="btn b-v b-sm" data-vsr="\${r.id}">\${r.reportTitle}</button></td>
-          <td>الأسبوع \${r.weekNum}</td>
-          <td style="direction:ltr;text-align:right;">\${dt}</td>
-          <td>\${bdg(r.status)}</td>
-          <td>\${r.supervisorStatus?bdg(r.supervisorStatus):'<span style="color:var(--m);">—</span>'}</td>
-          <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 18px;">
-            \${canAct?\`
-              <button class="btn b-a b-sm" data-ar="\${r.id}">اعتماد ✅</button>
-              <button class="btn b-r b-sm" data-dr="\${r.id}">رفض ❌</button>
-            \`:approved?\`<span style="font-size:12px;color:#1B6B35;">✅ معتمد</span>\`
-              :declined?\`<span style="font-size:12px;color:#721C24;">❌ مرفوض</span>\`
-              :\`<span style="font-size:12px;color:var(--m);">—</span>\`}
-          </td>
-        </tr>\`;
-      }).join('')}</tbody>
-    </table></div>
-    <div id="decl-f" style="display:none;margin-top:12px;padding:16px;background:#FFF8E1;border:1.5px solid #FFE082;border-radius:12px;"></div>`;
+  let rows='';
+  reps.forEach(r=>{
+    const canAct=r.status==='مُرسَل';
+    const appr=r.supervisorStatus==='معتمد';
+    const decl=r.supervisorStatus==='مرفوض';
+    const dt=r.submittedAt?new Date(r.submittedAt).toLocaleDateString('ar-SA'):'—';
+    let act='';
+    if(canAct) act='<button class="btn b-a b-sm" data-ar="'+r.id+'">اعتماد ✅</button> <button class="btn b-r b-sm" data-dr="'+r.id+'">رفض ❌</button>';
+    else if(appr) act='<span style="font-size:12px;color:#1B6B35;">✅ معتمد</span>';
+    else if(decl) act='<span style="font-size:12px;color:#721C24;">❌ مرفوض</span>';
+    else act='<span style="font-size:12px;color:var(--m);">—</span>';
+    rows+='<tr>'
+      +'<td><button class="btn b-v b-sm" data-vsr="'+r.id+'">'+r.reportTitle+'</button></td>'
+      +'<td>الأسبوع '+r.weekNum+'</td>'
+      +'<td style="direction:ltr;text-align:right;">'+dt+'</td>'
+      +'<td>'+bdg(r.status)+'</td>'
+      +'<td>'+(r.supervisorStatus?bdg(r.supervisorStatus):'<span style="color:var(--m);">—</span>')+'</td>'
+      +'<td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 18px;">'+act+'</td>'
+      +'</tr>';
+  });
+  document.getElementById('sup-rct').innerHTML=
+    '<div class="tw"><table>'
+    +'<thead><tr><th>التقرير</th><th>الأسبوع</th><th>تاريخ الرفع</th><th>الحالة</th><th>اعتماد المشرف</th><th>إجراء</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>'
+    +'<div id="decl-f" style="display:none;margin-top:12px;padding:16px;background:#FFF8E1;border:1.5px solid #FFE082;border-radius:12px;"></div>';
   document.querySelectorAll('[data-vsr]').forEach(b=>b.addEventListener('click',()=>{const r=reps.find(x=>x.id===b.dataset.vsr);if(r)openRepView(s,r);}));
   document.querySelectorAll('[data-ar]').forEach(b=>b.addEventListener('click',()=>supAppr(reps.find(x=>x.id===b.dataset.ar),true,'')));
   document.querySelectorAll('[data-dr]').forEach(b=>b.addEventListener('click',()=>{
     const r=reps.find(x=>x.id===b.dataset.dr);
     const df=document.getElementById('decl-f');df.style.display='block';
-    df.innerHTML=`<div style="font-weight:700;margin-bottom:10px;">رفض \${r?.reportTitle} — سيُرسَل مع التعليق للطالب</div>
-      <textarea class="fi" id="dc-cm" rows="3" placeholder="اذكر الأخطاء التي يجب تصحيحها..."></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button class="btn b-r b-sm" id="dc-cf">تأكيد الرفض 📨</button>
-        <button class="btn b-sm" style="background:#EEE;color:#555;" onclick="document.getElementById('decl-f').style.display='none'">إلغاء</button>
-      </div>`;
+    df.innerHTML='<div style="font-weight:700;margin-bottom:10px;">رفض '+r?.reportTitle+' — سيُرسَل مع التعليق للطالب</div>'
+      +'<textarea class="fi" id="dc-cm" rows="3" placeholder="اذكر الأخطاء التي يجب تصحيحها..."></textarea>'
+      +'<div style="display:flex;gap:8px;margin-top:8px;">'
+      +'<button class="btn b-r b-sm" id="dc-cf">تأكيد الرفض 📨</button>'
+      +('<button class="btn b-sm" style="background:#EEE;color:#555;" onclick="document.getElementById(\'decl-f\').style.display=\'none\'">إلغاء</button>')
+      +'</div>';
     document.getElementById('dc-cf').onclick=()=>{
       const cm=document.getElementById('dc-cm')?.value.trim();
       if(!cm){toast('يرجى كتابة ملاحظة للطالب');return;}
