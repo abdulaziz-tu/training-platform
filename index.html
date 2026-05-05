@@ -10,29 +10,41 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-ap
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import{getFirestore,doc,getDoc,getDocs,setDoc,collection,query,where,updateDoc,addDoc,deleteDoc,onSnapshot,orderBy,serverTimestamp,arrayUnion,arrayRemove}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* ══════ ضع إعدادات Firebase هنا ══════ */
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBvEUvo4angxWP0hzt26dMhrN8EBYQOgG4",
-  authDomain: "training-platform-9d324.firebaseapp.com",
-  projectId: "training-platform-9d324",
-  storageBucket: "training-platform-9d324.firebasestorage.app",
-  messagingSenderId: "40832017610",
-  appId: "1:40832017610:web:0ae192093c490e8ebc0033",
-  measurementId: "G-300T413MFH"
-};
-
+/* ══════ Firebase Config — loaded from localStorage ══════ */
 let auth,auth2,db,READY=false;
-try{
-  if(cfg.apiKey!=="AIzaSyBvEUvo4angxWP0hzt26dMhrN8EBYQOgG4"){
+
+function loadCfg(){
+  try{return JSON.parse(localStorage.getItem('fb_cfg')||'null');}catch(e){return null;}
+}
+
+function initFirebase(cfg){
+  try{
     const app=initializeApp(cfg);
     const app2=initializeApp(cfg,"sec");
     auth=getAuth(app);auth2=getAuth(app2);db=getFirestore(app);READY=true;
+    return true;
+  }catch(e){console.error("Firebase init error:",e);return false;}
+}
+
+const savedCfg=loadCfg();
+if(savedCfg&&savedCfg.apiKey){
+  initFirebase(savedCfg);
+}
+
+/* expose save function for setup screen */
+window._saveFirebaseCfg=function(cfg){
+  localStorage.setItem('fb_cfg',JSON.stringify(cfg));
+  if(initFirebase(cfg)){
+    window.FB.ready=true;
+    document.getElementById('s-setup').classList.remove('active');
+    document.getElementById('sr').classList.add('active');
+    return true;
   }
-}catch(e){console.error(e);}
+  return false;
+};
 
 window.FB={
-  ready:READY,
+  get ready(){return READY;},
   login:(e,p)=>signInWithEmailAndPassword(auth,e,p),
   logout:()=>signOut(auth),
   onAuth:(cb)=>onAuthStateChanged(auth,cb),
@@ -67,6 +79,13 @@ if(READY){
       const s=await getDoc(doc(db,"users",user.uid));
       if(s.exists()){window._CU={id:user.uid,...s.data()};navigateToDashboard(s.data().role);}
     }
+  });
+} else if(!savedCfg){
+  // Show setup screen
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const ss=document.getElementById('s-setup');
+    if(ss)ss.classList.add('active');
   });
 }
 </script>
@@ -358,9 +377,38 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
   </div>
 </div>
 
+<!-- ══ SCREEN: FIREBASE SETUP ══ -->
+<div id="s-setup" class="screen" style="flex-direction:column;background:linear-gradient(135deg,#2C3E50,#4A5568);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:24px;padding:40px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:70px;height:70px;background:var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;">🔥</div>
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:6px;">إعداد Firebase</h2>
+      <p style="font-size:13px;color:var(--m);">أدخل إعدادات مشروع Firebase مرة واحدة وستُحفظ تلقائياً</p>
+    </div>
+    <div style="background:#F0EBFB;border-radius:12px;padding:14px;margin-bottom:20px;font-size:12.5px;color:#5239A8;line-height:1.7;">
+      📌 <strong>كيف تجد الإعدادات؟</strong><br>
+      Firebase Console → اختر مشروعك → Project Settings (⚙️) → Your apps → SDK setup and configuration
+    </div>
+    <div class="fg2">
+      <div><div class="fl">API Key *</div><input class="fi" id="cfg-key" type="text" placeholder="AIzaSy..."></div>
+      <div><div class="fl">Project ID *</div><input class="fi" id="cfg-pid" type="text" placeholder="my-project-id"></div>
+      <div><div class="fl">Auth Domain *</div><input class="fi" id="cfg-auth" type="text" placeholder="my-project.firebaseapp.com"></div>
+      <div><div class="fl">App ID *</div><input class="fi" id="cfg-app" type="text" placeholder="1:123:web:abc..."></div>
+      <div><div class="fl">Storage Bucket</div><input class="fi" id="cfg-sb" type="text" placeholder="my-project.appspot.com"></div>
+      <div><div class="fl">Messaging Sender ID</div><input class="fi" id="cfg-ms" type="text" placeholder="123456789"></div>
+    </div>
+    <div class="etxt" id="cfg-er" style="margin-bottom:10px;"></div>
+    <button class="btn b-p" style="width:100%;padding:13px;font-size:15px;" onclick="saveSetup()">حفظ الإعدادات والبدء 🚀</button>
+    <p style="text-align:center;font-size:11px;color:var(--m);margin-top:12px;">تُحفظ الإعدادات في المتصفح (localStorage) فقط</p>
+  </div>
+</div>
+
 <!-- ══ SCREEN: ROLES ══ -->
 <div id="sr" class="screen active">
-  <div class="hdr"><h1>منصة التدريب الميداني التعاوني</h1></div>
+  <div class="hdr" style="position:relative;">
+    <h1>منصة التدريب الميداني التعاوني</h1>
+    <button onclick="resetSetup()" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50px;padding:6px 14px;font-family:'Tajawal',sans-serif;font-size:12px;cursor:pointer;">⚙️ الإعدادات</button>
+  </div>
   <div class="roles">
     <div class="rc s1" onclick="pickRole('supervisor')"><div class="ri">👤</div><div class="rl">مشرف<br>التدريب</div></div>
     <div class="rc s2" onclick="pickRole('advisor')"><div class="ri">🎓</div><div class="rl">المرشد<br>الأكاديمي</div></div>
@@ -590,6 +638,32 @@ async function markConvUnread(convId,recipientId){
   await window.FB.updateUser(recipientId,{unreadConvs:window.FB.arrayUnion(convId)});
 }
 
+/* ══════════ FIREBASE SETUP ══════════ */
+function saveSetup(){
+  const key=document.getElementById('cfg-key')?.value.trim();
+  const pid=document.getElementById('cfg-pid')?.value.trim();
+  const auth_=document.getElementById('cfg-auth')?.value.trim();
+  const app=document.getElementById('cfg-app')?.value.trim();
+  const er=document.getElementById('cfg-er');
+  if(!key||!pid||!auth_||!app){er.textContent='يرجى ملء الحقول الإلزامية (API Key, Project ID, Auth Domain, App ID)';return;}
+  er.textContent='';
+  const cfg={
+    apiKey:key,
+    projectId:pid,
+    authDomain:auth_||`${pid}.firebaseapp.com`,
+    storageBucket:document.getElementById('cfg-sb')?.value.trim()||`${pid}.appspot.com`,
+    messagingSenderId:document.getElementById('cfg-ms')?.value.trim()||'',
+    appId:app,
+  };
+  const ok=window._saveFirebaseCfg(cfg);
+  if(!ok)er.textContent='❌ فشل الاتصال — تحقق من الإعدادات';
+}
+
+// Check if setup needed on page load
+window.addEventListener('load',()=>{
+  try{const c=JSON.parse(localStorage.getItem('fb_cfg')||'null');if(!c||!c.apiKey){show('s-setup');}}catch(e){show('s-setup');}
+});
+
 /* ══════════ NAVIGATION ══════════ */
 function pickRole(r){CR=r;document.getElementById('l-sub').textContent=RL[r]||'تسجيل الدخول';document.getElementById('l-er').textContent='';['l-em','l-pw'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});show('sl');}
 function navigateToDashboard(r){const m={student:'s-stu',advisor:'s-adv',supervisor:'s-sup'};if(!m[r]){show('sr');return;}buildDash(r);show(m[r]);}
@@ -613,6 +687,7 @@ async function doLogin(){
   finally{btn.disabled=false;btn.textContent='تسجيل الدخول';}
 }
 function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];show('sr');}
+function resetSetup(){if(confirm('هل تريد تغيير إعدادات Firebase؟ ستحتاج لإعادة الإدخال.')){localStorage.removeItem('fb_cfg');location.reload();}}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('sl').classList.contains('active'))doLogin();});
 
 /* ══════════ BUILD DASHBOARDS ══════════ */
