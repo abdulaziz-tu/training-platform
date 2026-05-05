@@ -323,6 +323,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
                 <option value="">— اختر المرشد —</option>
               </select>
             </div>
+            <div><div class="fl">الرقم الجامعي</div><input class="fi" id="u-uid" type="text" placeholder="202112345"></div>
             <div><div class="fl">جهة التدريب</div><input class="fi" id="u-co" type="text" placeholder="شركة أرامكو"></div>
             <div>
               <div class="fl">القسم في جهة التدريب</div>
@@ -682,7 +683,11 @@ function updStuFinal(data){
   const desc=document.getElementById('stu-fin-desc');
   // Block re-submit if under review
   const underReview=s==='sent'||s==='supervisor_approved';
-  if(btn){btn.disabled=underReview;btn.textContent=underReview?'قيد المراجعة...':'إرسال التقرير النهائي 📤';}
+  const fullyApproved=s==='approved';
+  if(btn){
+    btn.disabled=underReview||fullyApproved;
+    btn.textContent=fullyApproved?'✅ معتمد نهائياً':underReview?'⏳ قيد المراجعة...':'إرسال التقرير النهائي 📤';
+  }
   // Show decline comments
   if((s==='supervisor_declined'||s==='advisor_declined')&&data?.declineComment){
     if(desc)desc.textContent=`تعليق: ${data.declineComment}`;
@@ -717,7 +722,13 @@ async function submitStuRep(r){
   const goal=document.getElementById('sc-g')?.value.trim(),tasks=document.getElementById('sc-t')?.value.trim();
   if(!goal||!tasks){toast('يرجى ملء الهدف والمهام على الأقل');return;}
   const content={goal,tasks,programs:document.getElementById('sc-p')?.value.trim()||'',benefits:document.getElementById('sc-b')?.value.trim()||'',suggestions:document.getElementById('sc-s')?.value.trim()||''};
-  if(window.FB?.ready)await window.FB.updateReport(r.id,{status:'مُرسَل',supervisorStatus:null,supervisorComment:'',declineComment:'',content});
+  if(window.FB?.ready)await window.FB.updateReport(r.id,{
+    status:'مُرسَل',supervisorStatus:null,supervisorComment:'',declineComment:'',content,
+    studentUnivId:CU.univId||'',
+    studentDept:CU.dept||'',
+    studentCompanyDept:CU.companyDept||'',
+    submittedAt:new Date().toISOString()
+  });
   closeM('m-rep');toast('✅ تم رفع التقرير — بانتظار مراجعة مشرف التدريب');
 }
 
@@ -830,8 +841,9 @@ function advSel(sid){
 
 function renderAdvDet(s,reps){
   const rem=reps.filter(r=>r.status!=='مكتمل');
-  document.getElementById('adv-rem').textContent=_advRem?`− إخفاء (${rem.length})`:`+ المتبقية (${rem.length})`;
-  const toShow=_advRem?reps:reps.filter(r=>r.status==='مكتمل');
+  const advPending=reps.filter(r=>r.supervisorStatus==='معتمد'&&r.status!=='مكتمل');
+  document.getElementById('adv-rem').textContent=_advRem?`− إخفاء (${rem.length})`:`+ المتبقية (${rem.length-advPending.length})${advPending.length?' 🔔 '+advPending.length+' بانتظار تقييمك':''}`;
+  const toShow=_advRem?reps:reps.filter(r=>r.status==='مكتمل'||r.supervisorStatus==='معتمد');
   document.getElementById('adv-dc').innerHTML=`
     <div class="tw"><table>
       <thead><tr><th>التقرير</th><th>الأسبوع</th><th>الحالة</th><th>اعتماد المشرف</th><th>التقييم</th><th>إجراء</th></tr></thead>
@@ -880,11 +892,16 @@ function openAdvRate(s,r){
 function openRepView(s,r){
   const c=r.content||{};
   document.getElementById('mr-ti').textContent=`${r.reportTitle} — ${s.name}`;
+  const subDt=r.submittedAt?new Date(r.submittedAt).toLocaleDateString('ar-SA',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
   document.getElementById('mr-bd').innerHTML=`
     <div class="rs"><h4>بيانات التدريب</h4>
       <div class="rig">
-        <div class="rit"><div class="ril">الطالب</div><div class="riv">${s.name}</div></div>
-        <div class="rit"><div class="ril">القسم</div><div class="riv">${s.dept||'—'}</div></div>
+        <div class="rit"><div class="ril">اسم الطالب</div><div class="riv">${s.name||r.studentName||'—'}</div></div>
+        <div class="rit"><div class="ril">الرقم الجامعي</div><div class="riv">${r.studentUnivId||s.univId||'—'}</div></div>
+        <div class="rit"><div class="ril">القسم العلمي</div><div class="riv">${r.studentDept||s.dept||'—'}</div></div>
+        <div class="rit"><div class="ril">قسم جهة التدريب</div><div class="riv">${r.studentCompanyDept||s.companyDept||'—'}</div></div>
+        <div class="rit"><div class="ril">مشرف التدريب</div><div class="riv">${r.supervisorName||'—'}</div></div>
+        <div class="rit"><div class="ril">تاريخ رفع التقرير</div><div class="riv">${subDt}</div></div>
         <div class="rit"><div class="ril">جهة التدريب</div><div class="riv">${s.company||'—'}</div></div>
         <div class="rit"><div class="ril">الأسبوع</div><div class="riv">${r.weekNum}</div></div>
       </div>
@@ -917,6 +934,19 @@ function renderAdvFinals(fins){
       ${f.status==='supervisor_approved'?`
         <div style="border-top:1px solid var(--b);padding-top:14px;">
           <div style="font-size:13px;padding:10px;background:#fff;border-radius:8px;margin-bottom:12px;"><strong>المستخلص:</strong> ${f.abstract||'—'}</div>
+          ${f.supervisorEval?`<div style="background:#F0EBFB;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;">
+            <div style="font-weight:700;margin-bottom:8px;color:var(--p);">📊 تقييم مشرف التدريب — ${f.supervisorEval.evaluatorName||''}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+              <span>الأداء: ${f.supervisorEval.overall}/5</span>
+              <span>الالتزام: ${f.supervisorEval.commitment}/5</span>
+              <span>جودة العمل: ${f.supervisorEval.quality}/5</span>
+              <span>السلوك: ${f.supervisorEval.behavior}/5</span>
+              <span>التقرير: ${f.supervisorEval.reportQuality}/5</span>
+              <span>المعدل: <strong>${f.supervisorEval.average}/5</strong></span>
+            </div>
+            <div style="margin-top:6px;">التوصية: <strong style="color:${f.supervisorEval.recommendation==='ناجح'?'#1B6B35':'#721C24'}">${f.supervisorEval.recommendation}</strong></div>
+            ${f.supervisorEval.comment?`<div style="margin-top:4px;color:var(--m);">ملاحظة: ${f.supervisorEval.comment}</div>`:''}
+          </div>`:''}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn b-a b-sm" data-fadv-appr="${f.id}">اعتماد التقرير النهائي ✅</button>
             <button class="btn b-r b-sm" data-fadv-decl="${f.id}">رفض وإعادة للطالب ❌</button>
@@ -1036,20 +1066,31 @@ function supSel(sid){
 }
 
 function renderSupReps(s,reps){
-  const sub=reps.filter(r=>r.status==='مُرسَل');
-  if(!sub.length){document.getElementById('sup-rct').innerHTML='<p style="color:var(--m);padding:16px;text-align:center;">لم يرفع الطالب أي تقارير بعد</p>';return;}
+  if(!reps.length){document.getElementById('sup-rct').innerHTML='<p style="color:var(--m);padding:16px;text-align:center;">لا توجد تقارير لهذا الطالب بعد</p>';return;}
   document.getElementById('sup-rct').innerHTML=`
     <div class="tw"><table>
-      <thead><tr><th>التقرير</th><th>الأسبوع</th><th>الحالة</th><th>إجراء</th></tr></thead>
-      <tbody>${sub.map(r=>`<tr>
-        <td><button class="btn b-v b-sm" data-vsr="${r.id}">${r.reportTitle}</button></td>
-        <td>الأسبوع ${r.weekNum}</td>
-        <td>${bdg(r.status)}</td>
-        <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 18px;">
-          <button class="btn b-a b-sm" data-ar="${r.id}">اعتماد ✅</button>
-          <button class="btn b-r b-sm" data-dr="${r.id}">رفض ❌</button>
-        </td>
-      </tr>`).join('')}</tbody>
+      <thead><tr><th>التقرير</th><th>الأسبوع</th><th>تاريخ الرفع</th><th>الحالة</th><th>اعتماد المشرف</th><th>إجراء</th></tr></thead>
+      <tbody>${reps.map(r=>{
+        const canAct=r.status==='مُرسَل';
+        const approved=r.supervisorStatus==='معتمد';
+        const declined=r.supervisorStatus==='مرفوض';
+        const dt=r.submittedAt?new Date(r.submittedAt).toLocaleDateString('ar-SA'):'—';
+        return\`<tr>
+          <td><button class="btn b-v b-sm" data-vsr="\${r.id}">\${r.reportTitle}</button></td>
+          <td>الأسبوع \${r.weekNum}</td>
+          <td style="direction:ltr;text-align:right;">\${dt}</td>
+          <td>\${bdg(r.status)}</td>
+          <td>\${r.supervisorStatus?bdg(r.supervisorStatus):'<span style="color:var(--m);">—</span>'}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 18px;">
+            \${canAct?\`
+              <button class="btn b-a b-sm" data-ar="\${r.id}">اعتماد ✅</button>
+              <button class="btn b-r b-sm" data-dr="\${r.id}">رفض ❌</button>
+            \`:approved?\`<span style="font-size:12px;color:#1B6B35;">✅ معتمد</span>\`
+              :declined?\`<span style="font-size:12px;color:#721C24;">❌ مرفوض</span>\`
+              :\`<span style="font-size:12px;color:var(--m);">—</span>\`}
+          </td>
+        </tr>\`;
+      }).join('')}</tbody>
     </table></div>
     <div id="decl-f" style="display:none;margin-top:12px;padding:16px;background:#FFF8E1;border:1.5px solid #FFE082;border-radius:12px;"></div>`;
   document.querySelectorAll('[data-vsr]').forEach(b=>b.addEventListener('click',()=>{const r=reps.find(x=>x.id===b.dataset.vsr);if(r)openRepView(s,r);}));
@@ -1057,7 +1098,7 @@ function renderSupReps(s,reps){
   document.querySelectorAll('[data-dr]').forEach(b=>b.addEventListener('click',()=>{
     const r=reps.find(x=>x.id===b.dataset.dr);
     const df=document.getElementById('decl-f');df.style.display='block';
-    df.innerHTML=`<div style="font-weight:700;margin-bottom:10px;">رفض ${r?.reportTitle} — سيُرسَل مع التعليق للطالب</div>
+    df.innerHTML=`<div style="font-weight:700;margin-bottom:10px;">رفض \${r?.reportTitle} — سيُرسَل مع التعليق للطالب</div>
       <textarea class="fi" id="dc-cm" rows="3" placeholder="اذكر الأخطاء التي يجب تصحيحها..."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn b-r b-sm" id="dc-cf">تأكيد الرفض 📨</button>
@@ -1075,8 +1116,8 @@ function renderSupReps(s,reps){
 async function supAppr(r,approve,comment){
   if(!r)return;
   const upd=approve
-    ?{supervisorStatus:'معتمد',supervisorComment:'',status:'قيد المراجعة'}
-    :{supervisorStatus:'مرفوض',supervisorComment:comment,declineComment:comment,status:'مرفوض من المشرف'};
+    ?{supervisorStatus:'معتمد',supervisorName:CU.name,supervisorComment:'',status:'قيد المراجعة',supervisorApprovedAt:new Date().toISOString()}
+    :{supervisorStatus:'مرفوض',supervisorName:CU.name,supervisorComment:comment,declineComment:comment,status:'مرفوض من المشرف'};
   if(window.FB?.ready)await window.FB.updateReport(r.id,upd);
   toast(approve?`✅ تم اعتماد ${r.reportTitle}`:`❌ تم رفض التقرير مع الملاحظة للطالب`);
 }
@@ -1100,13 +1141,36 @@ function openSupFins(){
         </div>
         <div style="font-size:13px;padding:10px;background:#fff;border-radius:8px;margin-bottom:${f.status==='sent'?'10':'0'}px;"><strong>المستخلص:</strong> ${f.abstract||'—'}</div>
         ${f.status==='sent'?`
-          <div style="border-top:1px solid var(--b);padding-top:12px;">
-            <div style="font-weight:700;margin-bottom:10px;">مراجعة التقرير النهائي</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              <button class="btn b-a b-sm" data-sup-appr="${f.id}">اعتماد وإحالة للمرشد ✅</button>
+          <div style="border-top:1px solid var(--b);padding-top:14px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--p);">📋 تقييم التقرير النهائي</div>
+            <div style="font-size:12px;color:var(--m);margin-bottom:10px;">التقييم: 1 = ضعيف &nbsp;|&nbsp; 5 = ممتاز</div>
+            <div class="eg">
+              <div class="ei"><label>الأداء العام</label>
+                <select id="sr-o-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+              </div>
+              <div class="ei"><label>الالتزام والانضباط</label>
+                <select id="sr-a-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+              </div>
+              <div class="ei"><label>جودة العمل</label>
+                <select id="sr-q-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+              </div>
+              <div class="ei"><label>السلوك المهني</label>
+                <select id="sr-b-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+              </div>
+              <div class="ei"><label>جودة التقرير المكتوب</label>
+                <select id="sr-w-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+              </div>
+              <div class="ei"><label>التوصية النهائية</label>
+                <select id="sr-rec-${f.id}"><option value="ناجح">✅ ناجح</option><option value="راسب">❌ راسب</option></select>
+              </div>
+            </div>
+            <div class="fl">ملاحظات عامة للمرشد الأكاديمي</div>
+            <textarea class="fi" id="sr-c-${f.id}" rows="2" placeholder="ملاحظات عامة..."></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+              <button class="btn b-a b-sm" data-sup-appr="${f.id}">حفظ التقييم وإحالة للمرشد ✅</button>
               <button class="btn b-r b-sm" data-sup-decl="${f.id}">رفض وإعادة للطالب ❌</button>
             </div>
-            <div id="sup-fdecl-${f.id}" style="display:none;">
+            <div id="sup-fdecl-${f.id}" style="display:none;margin-top:8px;">
               <textarea class="fi" id="sup-fc-${f.id}" rows="2" placeholder="سبب الرفض للطالب..."></textarea>
               <button class="btn b-r b-sm" data-sup-cf="${f.id}">تأكيد الرفض</button>
             </div>
@@ -1118,8 +1182,19 @@ function openSupFins(){
     document.querySelectorAll('[data-sfv]').forEach(b=>b.addEventListener('click',()=>viewFinalMod(b.dataset.sfv)));
     document.querySelectorAll('[data-sup-appr]').forEach(b=>b.addEventListener('click',async()=>{
       const fid=b.getAttribute('data-sup-appr');
-      await window.FB.updateFinal(fid,{status:'supervisor_approved',supervisorApprovedAt:new Date().toISOString()});
-      toast('✅ تم الاعتماد وإحالة التقرير للمرشد الأكاديمي');
+      const supEval={
+        overall:parseInt(document.getElementById(`sr-o-${fid}`)?.value||5),
+        commitment:parseInt(document.getElementById(`sr-a-${fid}`)?.value||5),
+        quality:parseInt(document.getElementById(`sr-q-${fid}`)?.value||5),
+        behavior:parseInt(document.getElementById(`sr-b-${fid}`)?.value||5),
+        reportQuality:parseInt(document.getElementById(`sr-w-${fid}`)?.value||5),
+        recommendation:document.getElementById(`sr-rec-${fid}`)?.value||'ناجح',
+        comment:(document.getElementById(`sr-c-${fid}`)?.value||'').trim(),
+        evaluatorName:CU.name,evaluatedAt:new Date().toISOString()
+      };
+      supEval.average=Math.round((supEval.overall+supEval.commitment+supEval.quality+supEval.behavior+supEval.reportQuality)/5*10)/10;
+      await window.FB.updateFinal(fid,{status:'supervisor_approved',supervisorEval:supEval,supervisorApprovedAt:new Date().toISOString()});
+      toast('✅ تم حفظ التقييم وإحالة التقرير للمرشد الأكاديمي');
     }));
     document.querySelectorAll('[data-sup-decl]').forEach(b=>b.addEventListener('click',()=>{
       const fid=b.getAttribute('data-sup-decl');
@@ -1193,7 +1268,8 @@ async function renderUsrList(rf){
   el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">جارٍ التحميل...</p>';
   try{
     const snap=await window.FB.getAllUsers();
-    let users=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const allUsers=snap.docs.map(d=>({id:d.id,...d.data()}));
+    let users=[...allUsers];
     if(rf!=='all')users=users.filter(u=>u.role===rf);
     if(!users.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مستخدمون</p>';return;}
     const rc={student:'rb-s',advisor:'rb-a',supervisor:'rb-u'};
@@ -1206,9 +1282,11 @@ async function renderUsrList(rf){
           ${u.dept?`<div style="font-size:12px;color:var(--m);">${u.dept}</div>`:''}
           ${u.trainingStartDate?`<div style="font-size:12px;color:var(--m);">📅 بدء التدريب: ${u.trainingStartDate}</div>`:''}
         </div>
+        <button class="btn b-v b-sm" data-eu="${u.id}" style="padding:4px 10px;">✏️</button>
         <span class="rb ${rc[u.role]||''}">${rl[u.role]||u.role}</span>
         <button class="btn b-r b-sm" data-du="${u.id}" data-dn="${(u.name||'').replace(/'/g,"&#39;")}">🗑️</button>
       </div>`).join('');
+    el.querySelectorAll('[data-eu]').forEach(b=>b.addEventListener('click',()=>{const u=allUsers.find(x=>x.id===b.dataset.eu);if(u)openEditUser(u);}));
     el.querySelectorAll('[data-du]').forEach(b=>b.addEventListener('click',()=>{if(confirm(`حذف "${b.dataset.dn}"؟`))delUser(b.dataset.du,b.dataset.dn);}));
   }catch(e){el.innerHTML=`<p style="color:red;padding:16px;">${e.message}</p>`;}
 }
@@ -1230,10 +1308,13 @@ async function createUser(){
     const ud={name:nm,email:em,role:rl,unreadConvs:[]};
     if(rl==='student'){
       ud.advisorId=document.getElementById('u-adv').value;
+      ud.univId=document.getElementById('u-uid')?.value.trim()||'';
       ud.dept=document.getElementById('u-dp').value;
       ud.company=document.getElementById('u-co').value.trim();
       ud.companyDept=document.getElementById('u-cd').value;
       ud.trainingStartDate=document.getElementById('u-sd').value;
+      const selAdv=_allAdvisors.find(a=>a.id===ud.advisorId);
+      ud.advisorName=selAdv?.name||'';
     }
     const uid=await window.FB.createAuth(em,pw);
     await window.FB.setUser(uid,ud);
@@ -1266,6 +1347,55 @@ async function delUser(uid,name){
   if(!window.FB?.ready)return;
   try{await window.FB.deleteDoc('users',uid);toast(`🗑️ تم حذف ${name}`);renderUsrList(document.querySelector('.ft.active')?.dataset.r||'all');}
   catch(e){toast('❌ '+e.message);}
+}
+
+
+/* ══════════ EDIT USER ══════════ */
+function openEditUser(u){
+  const isS=u.role==='student';
+  document.getElementById('mr-ti').textContent='✏️ تعديل — '+u.name;
+  let html=`<div style="background:#F0EBFB;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;">
+    <strong>الدور:</strong> ${{student:'طالب',advisor:'مرشد أكاديمي',supervisor:'مشرف التدريب'}[u.role]||u.role}
+    &nbsp;|&nbsp;<strong>البريد:</strong> ${u.email||'—'}</div>
+  <div class="fl">الاسم الكامل *</div><input class="fi" id="eu-nm" type="text" value="${(u.name||'').replace(/"/g,'&quot;')}">`;
+  if(isS){
+    html+=`<div class="fl">الرقم الجامعي</div><input class="fi" id="eu-uid" type="text" value="${u.univId||''}">
+    <div class="fl">القسم العلمي</div>
+    <select class="fi" id="eu-dp"><option value="">—</option>
+      <option${u.dept==='نظم المعلومات الإدارية'?' selected':''}>نظم المعلومات الإدارية</option>
+      <option${u.dept==='تحليل البيانات'?' selected':''}>تحليل البيانات</option>
+      <option${u.dept==='علوم الحاسب'?' selected':''}>علوم الحاسب</option>
+    </select>
+    <div class="fl">جهة التدريب</div><input class="fi" id="eu-co" type="text" value="${(u.company||'').replace(/"/g,'&quot;')}">
+    <div class="fl">قسم جهة التدريب</div>
+    <select class="fi" id="eu-cd"><option value="">—</option>
+      <option${u.companyDept==='تحليل البيانات'?' selected':''}>تحليل البيانات</option>
+      <option${u.companyDept==='حماية البيانات'?' selected':''}>حماية البيانات</option>
+      <option${u.companyDept==='امن سيبراني'?' selected':''}>امن سيبراني</option>
+    </select>
+    <div class="fl">تاريخ بدء التدريب</div><input class="fi" id="eu-sd" type="date" value="${u.trainingStartDate||''}">`;
+  }
+  html+='<div class="etxt" id="eu-er"></div>';
+  document.getElementById('mr-bd').innerHTML=html;
+  document.getElementById('mr-ft').innerHTML=`
+    <button class="btn b-p" onclick="saveEditUser('${u.id}',${isS})">حفظ التعديلات ✅</button>
+    <button class="btn" style="background:#EEE;color:#555;" onclick="closeM('m-rep')">إلغاء</button>`;
+  openM('m-rep');
+}
+async function saveEditUser(uid,isS){
+  const nm=document.getElementById('eu-nm')?.value.trim();
+  if(!nm){document.getElementById('eu-er').textContent='الاسم إلزامي';return;}
+  const upd={name:nm};
+  if(isS){
+    upd.univId=document.getElementById('eu-uid')?.value.trim()||'';
+    upd.dept=document.getElementById('eu-dp')?.value||'';
+    upd.company=document.getElementById('eu-co')?.value.trim()||'';
+    upd.companyDept=document.getElementById('eu-cd')?.value||'';
+    upd.trainingStartDate=document.getElementById('eu-sd')?.value||'';
+  }
+  if(window.FB?.ready)await window.FB.updateUser(uid,upd);
+  closeM('m-rep');toast('✅ تم حفظ التعديلات');
+  renderUsrList(document.querySelector('.ft.active')?.dataset.r||'all');
 }
 
 /* ══════════ CHAT ══════════ */
