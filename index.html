@@ -181,7 +181,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .notif-ban{background:#FFF3CD;border:1.5px solid #FFE082;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;}
 .notif-ban .ni{font-size:26px;}.notif-ban .nt{font-size:13px;font-weight:600;color:#856404;}
 /* MODAL */
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;transition:opacity .2s;}
 .mo.open{display:flex;}
 .mb{background:#fff;border-radius:20px;width:100%;max-width:720px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:su .3s ease;}
 .mh{padding:18px 24px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -562,6 +562,13 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div id="adv-dc"></div>
     </div>
     <div class="card">
+      <div class="ch"><div class="ct">⭐ طلب تقييم طالب من مشرف التدريب</div><button class="tb" id="adv-rq-exp" onclick="togAdvRqPanel()">+</button></div>
+      <div id="adv-rq-panel" style="display:none;">
+        <p style="font-size:13px;color:var(--m);margin-bottom:14px;">اختر طالباً لطلب تقييمه من مشرف التدريب. سيصله إشعار لتعبئة استمارة التقييم.</p>
+        <div id="adv-rq-list"></div>
+      </div>
+    </div>
+    <div class="card">
       <div class="ch"><div class="ct">التقارير النهائية للطلاب 📋</div></div>
       <div id="adv-fins"></div>
     </div>
@@ -626,12 +633,28 @@ let _advStu=[], _advAll=false, _advRem=false, _advSel=null;
 let _supStu=[], _supAll=false, _supSel=null, _advPanOpen=false;
 let _chatCtx=[], _pStar=0;
 let _allAdvisors=[], _allSupervisors=[], _allFieldSups=[]; // for user creation dropdown
+let _selCompany=null, _selFSup=null; // for companies box
+let _chatFilter='all'; // 'all', 'students', 'supervisors'
 let _unreadConvs=new Set(); // conv IDs with unread for current user
 
 /* ══════════ HELPERS ══════════ */
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
-function openM(id){document.getElementById(id).classList.add('open');}
-function closeM(id){document.getElementById(id).classList.remove('open');}
+function openM(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  // Give this modal a higher z-index than any currently open modal
+  const openMods=document.querySelectorAll('.mo.open');
+  let maxZ=500;
+  openMods.forEach(m=>{const z=parseInt(m.style.zIndex||500);if(z>maxZ)maxZ=z;});
+  el.style.zIndex=maxZ+50;
+  el.classList.add('open');
+}
+function closeM(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.remove('open');
+  el.style.zIndex='';
+}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function setEl(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function ld(on){document.getElementById('lov').classList.toggle('on',on);}
@@ -972,6 +995,7 @@ function buildAdv(){
     _advStu=snap.docs.map(d=>({id:d.id,...d.data()}));
     setEl('adv-cnt',_advStu.length);setEl('adv-sl',`${_advStu.length} طالب`);
     renderAdvList();
+    if(document.getElementById('adv-rq-panel')?.style.display==='block')renderAdvRqList();
   }));
   _unsub.push(window.FB.watchAllSupervisors(snap=>{
     _allSupervisors=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1704,6 +1728,40 @@ function collectProgEval(uid){
   return{ratings,generalNote:document.getElementById('pe-gen-'+uid)?.value.trim()||'',suggestions:document.getElementById('pe-sug-'+uid)?.value.trim()||''};
 }
 
+
+function togAdvRqPanel(){
+  const panel=document.getElementById('adv-rq-panel');
+  const expanded=panel.style.display==='block';
+  panel.style.display=expanded?'none':'block';
+  document.getElementById('adv-rq-exp').textContent=expanded?'+':'−';
+  if(!expanded) renderAdvRqList();
+}
+function renderAdvRqList(){
+  const el=document.getElementById('adv-rq-list');
+  if(!el)return;
+  if(!_advStu.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب مسجّلون بعد</p>';return;}
+  el.innerHTML=_advStu.map(s=>{
+    const supId=s.supervisorId||s.supervisorId2;
+    const sup=_allSupervisors.find(x=>x.id===supId)||_allFieldSups.find(x=>x.id===supId);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;flex-wrap:wrap;">'
+      +'<div class="sav">'+(s.name||'?')[0]+'</div>'
+      +'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">'+s.name+'</div>'
+      +'<div style="font-size:12px;color:var(--m);">مشرف التدريب: '+(sup?.name||'غير محدد')+'</div></div>'
+      +(supId
+        ?'<button class="btn b-p b-sm" data-rq-sid="'+s.id+'" data-rq-snm="'+s.name+'" data-rq-fid="'+supId+'" data-rq-fnm="'+(sup?.name||'')+'">⭐ طلب تقييم</button>'
+        :'<span style="font-size:12px;color:#D94040;">لا يوجد مشرف تدريب</span>')
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('[data-rq-sid]').forEach(b=>{
+    b.addEventListener('click',async()=>{
+      const sid=b.dataset.rqSid,sname=b.dataset.rqSnm;
+      const fsid=b.dataset.rqFid,fsname=b.dataset.rqFnm;
+      await notifyFSup(fsid,sid,sname,fsname);
+      b.disabled=true;b.textContent='✅ أُرسل';
+    });
+  });
+}
+
 /* ══════════ FIELD SUPERVISOR DASHBOARD ══════════ */
 function buildFSup(){
   if(!CU){show('sr');return;}
@@ -1815,7 +1873,6 @@ function getChatCtx(){
   return[];
 }
 
-let _chatFilter='all'; // 'all', 'students', 'supervisors'
 function openChat(){
   _chatFilter='all';
   if(CR==='student'&&_allAdvisors.length===0&&window.FB?.ready){
@@ -1842,7 +1899,8 @@ function openChat(){
 function setChatFilter(f,btn){
   _chatFilter=f;
   document.querySelectorAll('#chat-filter-tabs .tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn)btn.classList.add('active');
+  _chatCtx=getChatCtx(); // refresh context with new filter
   renderChatCtx();
 }
 
@@ -1898,7 +1956,7 @@ function renderMsgs(msgs){
     return`<div><div class="cm ${mine?'mine':'theirs'}">${escHTML(m.text)}</div>
       <div class="cmt" style="text-align:${mine?'left':'right'}">${mine?'أنت':m.fromName||''} · ${m.time||''}</div></div>`;
   }).join('');
-  area.scrollTop=area.scrollHeight;
+  area.scrollTop=area.scrollHeight; // newest at bottom
 }
 
 function escHTML(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
