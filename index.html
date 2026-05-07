@@ -64,6 +64,12 @@ window.FB={
   watchConvMeta:(cid,cb)=>onSnapshot(doc(db,"convMeta",cid),cb),
   watchUser:(uid,cb)=>onSnapshot(doc(db,"users",uid),cb),
   getAllUsers:()=>getDocs(collection(db,"users")),
+  /* one-time reads (replaces onSnapshot-then-immediately-unsubscribe anti-pattern) */
+  getFinal:(id)=>getDoc(doc(db,"finalReports",id)),
+  getAllFinals:()=>getDocs(collection(db,"finalReports")),
+  getAllFieldEvals:()=>getDocs(collection(db,"fieldEvals")),
+  getReports:(sid)=>getDocs(query(collection(db,"reports"),where("studentId","==",sid))),
+  getFieldSupStudents:(fsid)=>getDocs(query(collection(db,"users"),where("role","==","student"),where("supervisorId","==",fsid))),
   arrayUnion,arrayRemove,
 };
 
@@ -72,6 +78,9 @@ if(READY){
     if(user){
       const s=await getDoc(doc(db,"users",user.uid));
       if(s.exists()){window._CU={id:user.uid,...s.data()};navigateToDashboard(s.data().role);}
+    } else {
+      /* External logout or token expiry — return to role screen */
+      if(typeof show==='function')show('sr');
     }
   });
 }
@@ -212,8 +221,8 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .carea{flex:1;display:flex;flex-direction:column;}
 .cms{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;}
 .cm{max-width:75%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;}
-.cm.mine{background:var(--p);color:#fff;align-self:flex-start;border-bottom-left-radius:4px;}
-.cm.theirs{background:#F0EBFB;align-self:flex-end;border-bottom-right-radius:4px;}
+.cm.mine{background:var(--p);color:#fff;align-self:flex-start;border-bottom-right-radius:4px;}
+.cm.theirs{background:#F0EBFB;align-self:flex-end;border-bottom-left-radius:4px;}
 .cmt{font-size:10px;opacity:.65;margin-top:3px;}
 .cir{padding:10px 14px;border-top:1px solid var(--b);display:flex;gap:8px;}
 .cinp{flex:1;padding:9px 14px;border:1.5px solid var(--b);border-radius:10px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;direction:rtl;}
@@ -423,7 +432,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 <!-- MODAL: COMPANIES BOX (جهات التدريب) -->
 <div class="mo" id="m-comp">
   <div class="mb" style="max-width:900px;">
-    <div class="mh"><div class="mti">🏢 جهات التدريب</div><button class="mcl" onclick="closeM('m-comp')">✕</button></div>
+    <div class="mh"><div class="mti">🏢 جهات التدريب</div><button class="mcl" onclick="if(_companiesUnsub){_companiesUnsub();_companiesUnsub=null;}closeM('m-comp')">✕</button></div>
     <div class="mbd" style="padding:0;display:flex;flex-direction:column;max-height:80vh;">
       <!-- Companies list (vertical cards) -->
       <div style="padding:16px;border-bottom:1px solid var(--b);background:#F9F7FF;">
@@ -631,7 +640,7 @@ const CDEPTS=['تحليل البيانات','حماية البيانات','ام�
 */
 
 /* ══════════ STATE ══════════ */
-let CU=null, CR=null, _unsub=[], _chatUnsub=null, _chatConvId=null;
+let CU=null, CR=null, _unsub=[], _chatUnsub=null, _chatConvId=null, _companiesUnsub=null;
 let _advStu=[], _advAll=false, _advRem=false, _advSel=null;
 let _supStu=[], _supAll=false, _supSel=null, _advPanOpen=false;
 let _chatCtx=[], _pStar=0;
@@ -699,18 +708,14 @@ function updateUnreadDot(btnId){
 
 function watchUnread(){
   if(!CU||!window.FB?.ready)return;
-  // Also watch own doc for lastMsg timestamps
-  window.FB.watchUser(CU.id,snap=>{
-    if(snap.exists()) window._cuUserData=snap.data();
-  });
   const chatBtnId=CR==='student'?'stu-chat-btn':CR==='advisor'?'adv-chat-btn':'sup-chat-btn';
-  // Watch user doc for unreadConvs field
+  /* Single watchUser that handles both _cuUserData AND unread dots (was previously split into two subscriptions, one of which leaked) */
   const unsb=window.FB.watchUser(CU.id,snap=>{
     if(!snap.exists())return;
     const data=snap.data();
+    window._cuUserData=data;
     _unreadConvs=new Set(data.unreadConvs||[]);
     updateUnreadDot(chatBtnId);
-    // update contact list dots if chat is open
     if(document.getElementById('m-chat').classList.contains('open'))renderChatCtx();
   });
   _unsub.push(unsb);
@@ -750,7 +755,7 @@ async function doLogin(){
   }catch(e){er.textContent=e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'?'بريد إلكتروني أو كلمة مرور غير صحيحة':e.message;}
   finally{btn.disabled=false;btn.textContent='تسجيل الدخول';}
 }
-function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];show('sr');}
+function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];_selCompany=null;_selFSup=null;_chatFilter='all';show('sr');}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('sl').classList.contains('active'))doLogin();});
 
 /* ══════════ BUILD DASHBOARDS ══════════ */
@@ -761,10 +766,10 @@ function buildStu(){
   if(!CU){show('sr');return;}
   setEl('st-nm',CU.name||'الطالب');setEl('st-av',(CU.name||'ط')[0]);
   if(!window.FB?.ready)return;
-  // Load advisor and supervisor info
-  if(CU.advisorId) window.FB.watchUser(CU.advisorId,snap=>{if(snap.exists()){const a=snap.data();const idx=_allAdvisors.findIndex(x=>x.id===CU.advisorId);if(idx>=0)_allAdvisors[idx]={id:CU.advisorId,...a};else _allAdvisors.push({id:CU.advisorId,...a});renderStuInfoCard();}});
+  // Load advisor and supervisor info — stored in _unsub so they unsubscribe on logout
+  if(CU.advisorId){const u1=window.FB.watchUser(CU.advisorId,snap=>{if(snap.exists()){const a=snap.data();const idx=_allAdvisors.findIndex(x=>x.id===CU.advisorId);if(idx>=0)_allAdvisors[idx]={id:CU.advisorId,...a};else _allAdvisors.push({id:CU.advisorId,...a});renderStuInfoCard();}});_unsub.push(u1);}
   const supId=CU.supervisorId||CU.supervisorId2;
-  if(supId) window.FB.watchUser(supId,snap=>{if(snap.exists()){const s=snap.data();const idx=_allSupervisors.findIndex(x=>x.id===supId);if(idx>=0)_allSupervisors[idx]={id:supId,...s};else _allSupervisors.push({id:supId,...s});_allFieldSups=[..._allSupervisors];renderStuInfoCard();}});
+  if(supId){const u2=window.FB.watchUser(supId,snap=>{if(snap.exists()){const s=snap.data();const idx=_allSupervisors.findIndex(x=>x.id===supId);if(idx>=0)_allSupervisors[idx]={id:supId,...s};else _allSupervisors.push({id:supId,...s});_allFieldSups=[..._allSupervisors];renderStuInfoCard();}});_unsub.push(u2);}
   setTimeout(renderStuInfoCard,300);
   _unsub.push(window.FB.watchReports(CU.id,snap=>{
     const r=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.weekNum||0)-(b.weekNum||0));
@@ -1055,14 +1060,8 @@ function buildAdv(){
   }));
   _unsub.push(window.FB.watchAllSupervisors(snap=>{
     _allSupervisors=snap.docs.map(d=>({id:d.id,...d.data()}));
-  // Watch new program evals from supervisor
-  _unsub.push(window.FB.watchUser(CU.id,snap=>{
-    if(!snap.exists())return;
-    const newEvals=snap.data()?.newProgEvals||[];
-    renderAdvProgEvals(newEvals);
   }));
-  }));
-  // Watch new program evals from supervisor
+  /* Watch current user doc for new program evals sent by supervisor */
   _unsub.push(window.FB.watchUser(CU.id,snap=>{
     if(!snap.exists())return;
     const newEvals=snap.data()?.newProgEvals||[];
@@ -1248,31 +1247,42 @@ function renderAdvFinals(fins){
 
 async function advFinalAction(fid,approve,comment){
   if(!window.FB?.ready)return;
-  if(approve){
-    await window.FB.updateFinal(fid,{status:'approved',approvedAt:new Date().toISOString()});
-    toast('✅ تم اعتماد التقرير النهائي');
-  } else {
-    await window.FB.updateFinal(fid,{status:'advisor_declined',declineComment:comment,advisorDeclinedAt:new Date().toISOString()});
-    // Notify student and supervisor
-    toast('✅ تم رفض التقرير — أُرسل للطالب مع إشعار للمشرف');
-  }
+  try{
+    if(approve){
+      await window.FB.updateFinal(fid,{status:'approved',approvedAt:new Date().toISOString()});
+      /* fid == studentId (finalReports use student UID as doc ID) */
+      await window.FB.addNotif({to:fid,type:'final_approved',
+        msg:'✅ تم اعتماد تقريرك النهائي من قبل المرشد الأكاديمي'});
+      toast('✅ تم اعتماد التقرير النهائي — أُشعِر الطالب');
+    } else {
+      /* Fetch report to get supervisorId for cross-notification */
+      const fSnap=await window.FB.getFinal(fid);
+      const fData=fSnap.exists()?fSnap.data():{};
+      await window.FB.updateFinal(fid,{status:'advisor_declined',declineComment:comment,advisorDeclinedAt:new Date().toISOString()});
+      await window.FB.addNotif({to:fid,type:'final_declined',
+        msg:'❌ تم رفض تقريرك النهائي من قبل المرشد الأكاديمي — '+comment});
+      if(fData.supervisorId){
+        await window.FB.addNotif({to:fData.supervisorId,type:'final_advisor_declined',
+          msg:'المرشد الأكاديمي رفض التقرير النهائي للطالب '+(fData.studentName||'')});
+      }
+      toast('✅ تم رفض التقرير — أُشعِر الطالب والمشرف');
+    }
+  }catch(e){toast('❌ حدث خطأ: '+e.message);}
 }
 
-function downloadFinalFile(fid,fileNum){
+async function downloadFinalFile(fid,fileNum){
   if(!window.FB?.ready)return;
-  const u=window.FB.watchFinals(snap=>{
-    const f=snap.docs.find(d=>d.id===fid)?.data();
-    u();
+  try{
+    const fSnap=await window.FB.getFinal(fid);
+    const f=fSnap.exists()?fSnap.data():null;
     const files=[f?.file,f?.file2,f?.file3].filter(Boolean);
     if(!files.length){toast('لا يوجد ملفات محفوظة');return;}
-    // If fileNum specified download that one, else offer all
     if(fileNum!==undefined&&files[fileNum]?.base64){
       const af=files[fileNum];
       const a=document.createElement('a');
       a.href='data:'+(af.type||'application/octet-stream')+';base64,'+af.base64;
       a.download=af.name||'file';a.click();
     } else {
-      // Download all available files
       files.forEach(af=>{
         if(!af.base64)return;
         const a=document.createElement('a');
@@ -1280,7 +1290,7 @@ function downloadFinalFile(fid,fileNum){
         a.download=af.name||'file';a.click();
       });
     }
-  });
+  }catch(e){toast('❌ خطأ في تحميل الملف: '+e.message);}
 }
 
 function onSnapshotQ(supId,field,cb){
@@ -1345,7 +1355,8 @@ async function loadAdvForSup(){
 
 function renderSupList(){
   const SHOW=4,toShow=_supAll?_supStu:_supStu.slice(0,SHOW);
-  document.getElementById('sup-exp').textContent=(_supAll&&_supStu.length>SHOW)?'−':'+';
+  const expBtn=document.getElementById('sup-exp');
+  if(expBtn){expBtn.style.display=_supStu.length>SHOW?'':'none';expBtn.textContent=_supAll?'−':'+';}
   document.getElementById('sup-sl2').innerHTML=toShow.length?toShow.map(s=>{
     const rated=!!(s.supervisorEval);
     return '<div class="sr'+(_supSel===s.id?' sel':'')+'" data-sid="'+s.id+'">'
@@ -1359,7 +1370,7 @@ function renderSupList(){
   }).join(''):'<p style="color:var(--m);text-align:center;padding:20px;">لا يوجد متدربون بعد</p>';
   document.querySelectorAll('#sup-sl2 .sr').forEach(row=>row.addEventListener('click',()=>supSel(row.dataset.sid)));
 }
-function togSup(){if(_supStu.length<=4)return;_supAll=!_supAll;renderSupList();}
+function togSup(){_supAll=!_supAll;renderSupList();}
 
 function supSel(sid){
   _supSel=sid;renderSupList();
@@ -1426,26 +1437,36 @@ function renderSupReps(s,reps){
 
 async function supAppr(r,approve,comment){
   if(!r)return;
-  const upd=approve
-    ?{supervisorStatus:'معتمد',supervisorName:CU.name,supervisorComment:'',status:'قيد المراجعة',supervisorApprovedAt:new Date().toISOString()}
-    :{supervisorStatus:'مرفوض',supervisorName:CU.name,supervisorComment:comment,declineComment:comment,status:'مرفوض من المشرف'};
-  if(window.FB?.ready)await window.FB.updateReport(r.id,upd);
-  toast(approve?`✅ تم اعتماد ${r.reportTitle}`:`❌ تم رفض التقرير مع الملاحظة للطالب`);
+  try{
+    const upd=approve
+      ?{supervisorStatus:'معتمد',supervisorName:CU.name,supervisorComment:'',status:'قيد المراجعة',supervisorApprovedAt:new Date().toISOString()}
+      :{supervisorStatus:'مرفوض',supervisorName:CU.name,supervisorComment:comment,declineComment:comment,status:'مرفوض من المشرف'};
+    if(window.FB?.ready){
+      await window.FB.updateReport(r.id,upd);
+      await window.FB.addNotif({
+        to:r.studentId,
+        type:approve?'report_approved':'report_declined',
+        msg:approve
+          ?`✅ اعتمد مشرف التدريب تقريرك: ${r.reportTitle}`
+          :`❌ رفض مشرف التدريب تقريرك: ${r.reportTitle} — ${comment}`
+      });
+    }
+    toast(approve?`✅ تم اعتماد ${r.reportTitle}`:`❌ تم رفض التقرير مع الملاحظة للطالب`);
+  }catch(e){toast('❌ حدث خطأ: '+e.message);}
 }
 function togAdvPan(){_advPanOpen=!_advPanOpen;document.getElementById('adv-pan').style.display=_advPanOpen?'block':'none';document.getElementById('sup-ac').classList.toggle('ac',_advPanOpen);}
 
-function openSupFins(){
+async function openSupFins(){
   const panel=document.getElementById('sup-fp');panel.style.display='block';
   if(!window.FB?.ready)return;
-  // Load pending evals from supervisor's user doc
-  window.FB.watchUser(CU.id,snap=>{
-    if(!snap.exists())return;
-    const pending=snap.data().pendingEvals||[];
-    const el=document.getElementById('sup-fc');
-    if(!pending.length){
-      el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا توجد طلبات تقييم حالياً</p>';
-      return;
-    }
+  /* Use a one-time read — watchUser here leaks because there's nowhere to store + clean up the unsub */
+  const snap=await window.FB.getUser(CU.id);
+  if(!snap.exists())return;
+  const pending=snap.data().pendingEvals||[];
+  const el=document.getElementById('sup-fc');
+  if(!pending.length){
+    el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا توجد طلبات تقييم حالياً</p>';
+  } else {
     el.innerHTML=pending.map(p=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
       +'<div class="sav">'+(p.studentName||'?')[0]+'</div>'
       +'<div style="flex:1;"><div style="font-weight:700;">'+p.studentName+'</div>'
@@ -1454,46 +1475,45 @@ function openSupFins(){
       +'</div>'
     ).join('');
     el.querySelectorAll('[data-peid]').forEach(b=>b.addEventListener('click',()=>openFSupEval(b.dataset.peid,b.dataset.pesn)));
-  });
+  }
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function viewFinalMod(fid){
+async function viewFinalMod(fid){
   document.getElementById('mr-ti').textContent='التقرير النهائي';
   document.getElementById('mr-bd').innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">جارٍ التحميل...</p>';
   document.getElementById('mr-ft').innerHTML=`<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>`;
   openM('m-rep');
-  if(window.FB?.ready){
-    const u=window.FB.watchFinals(snap=>{
-      const f=snap.docs.find(d=>d.id===fid)?.data();
-      if(!f){document.getElementById('mr-bd').innerHTML='<p style="color:var(--m);padding:20px;">لم يتم العثور على التقرير</p>';return;}
-      document.getElementById('mr-bd').innerHTML=`
-        <div class="rs"><h4>بيانات الطالب</h4>
-          <div class="rig"><div class="rit"><div class="ril">الاسم</div><div class="riv">${f.studentName||'—'}</div></div>
-          <div class="rit"><div class="ril">الحالة</div><div class="riv">${f.status||'—'}</div></div></div>
+  if(!window.FB?.ready)return;
+  try{
+    const fSnap=await window.FB.getFinal(fid);
+    const f=fSnap.exists()?fSnap.data():null;
+    if(!f){document.getElementById('mr-bd').innerHTML='<p style="color:var(--m);padding:20px;">لم يتم العثور على التقرير</p>';return;}
+    document.getElementById('mr-bd').innerHTML=`
+      <div class="rs"><h4>بيانات الطالب</h4>
+        <div class="rig"><div class="rit"><div class="ril">الاسم</div><div class="riv">${f.studentName||'—'}</div></div>
+        <div class="rit"><div class="ril">الحالة</div><div class="riv">${f.status||'—'}</div></div></div>
+      </div>
+      <div class="rs"><h4>العنوان</h4><div class="rv">${f.title||'—'}</div>
+        <h4 style="margin-top:12px;">المستخلص</h4><div class="rv">${f.abstract||'—'}</div>
+      </div>
+      ${f.file?.name?`<div class="rs"><h4>الملف المرفق</h4><div class="rv">📄 ${f.file.name} (${Math.round((f.file.size||0)/1024)}KB)
+        ${f.file.base64?`<br><button class="btn b-s b-sm" style="margin-top:8px;" onclick="downloadFinalFile('${fid}')">⬇ تحميل</button>`:''}
+      </div></div>`:''}
+      ${f.supervisorEval?`<div class="rs"><h4>📊 تقييم مشرف التدريب</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;background:#F0EBFB;border-radius:10px;padding:14px;margin-bottom:10px;">
+          <span>الأداء العام: <strong>${f.supervisorEval.overall}/5</strong></span>
+          <span>الالتزام: <strong>${f.supervisorEval.commitment}/5</strong></span>
+          <span>جودة العمل: <strong>${f.supervisorEval.quality}/5</strong></span>
+          <span>السلوك المهني: <strong>${f.supervisorEval.behavior}/5</strong></span>
+          <span>جودة التقرير: <strong>${f.supervisorEval.reportQuality}/5</strong></span>
+          <span>المعدل الكلي: <strong>${f.supervisorEval.average}/5</strong></span>
         </div>
-        <div class="rs"><h4>العنوان</h4><div class="rv">${f.title||'—'}</div>
-          <h4 style="margin-top:12px;">المستخلص</h4><div class="rv">${f.abstract||'—'}</div>
-        </div>
-        ${f.file?.name?`<div class="rs"><h4>الملف المرفق</h4><div class="rv">📄 ${f.file.name} (${Math.round((f.file.size||0)/1024)}KB)
-          ${f.file.base64?`<br><button class="btn b-s b-sm" style="margin-top:8px;" onclick="downloadFinalFile('${fid}')">⬇ تحميل</button>`:''}
-        </div></div>`:''}
-        ${f.supervisorEval?`<div class="rs"><h4>📊 تقييم مشرف التدريب</h4>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;background:#F0EBFB;border-radius:10px;padding:14px;margin-bottom:10px;">
-            <span>الأداء العام: <strong>${f.supervisorEval.overall}/5</strong></span>
-            <span>الالتزام: <strong>${f.supervisorEval.commitment}/5</strong></span>
-            <span>جودة العمل: <strong>${f.supervisorEval.quality}/5</strong></span>
-            <span>السلوك المهني: <strong>${f.supervisorEval.behavior}/5</strong></span>
-            <span>جودة التقرير: <strong>${f.supervisorEval.reportQuality}/5</strong></span>
-            <span>المعدل الكلي: <strong>${f.supervisorEval.average}/5</strong></span>
-          </div>
-          <div style="font-size:13px;margin-bottom:6px;">التوصية: <strong style="color:${f.supervisorEval.recommendation==='ناجح'?'#1B6B35':'#721C24'}">${f.supervisorEval.recommendation}</strong></div>
-          ${f.supervisorEval.comment?`<div style="font-size:12px;color:var(--m);">ملاحظة: ${f.supervisorEval.comment}</div>`:''}
-          <div style="font-size:11px;color:var(--m);margin-top:4px;">المقيّم: ${f.supervisorEval.evaluatorName||'—'}</div>
-        </div>`:''}
-        ${f.declineComment?`<div class="rs"><h4>تعليق الرفض</h4><div class="rv" style="background:#FFF8E1;">${f.declineComment}</div></div>`:''}`;
-      u();
-    });
-  }
+        <div style="font-size:13px;margin-bottom:6px;">التوصية: <strong style="color:${f.supervisorEval.recommendation==='ناجح'?'#1B6B35':'#721C24'}">${f.supervisorEval.recommendation}</strong></div>
+        ${f.supervisorEval.comment?`<div style="font-size:12px;color:var(--m);">ملاحظة: ${f.supervisorEval.comment}</div>`:''}
+        <div style="font-size:11px;color:var(--m);margin-top:4px;">المقيّم: ${f.supervisorEval.evaluatorName||'—'}</div>
+      </div>`:''}
+      ${f.declineComment?`<div class="rs"><h4>تعليق الرفض</h4><div class="rv" style="background:#FFF8E1;">${f.declineComment}</div></div>`:''}`;
+  }catch(e){document.getElementById('mr-bd').innerHTML='<p style="color:red;padding:20px;">خطأ: '+e.message+'</p>';}
 }
 
 /* ══════════ USER MANAGEMENT ══════════ */
@@ -1848,8 +1868,8 @@ function renderAdvProgEvals(newEvals){
     b.addEventListener('click',async()=>{
       const sid=b.dataset.apeSid;
       if(!window.FB?.ready)return;
-      const snap=await new Promise(res=>{const u=window.FB.watchFieldEvals(sn=>{res(sn);u();});});
-      const ev=snap.docs.find(d=>d.id==='progeval_'+sid)?.data();
+      const evSnap=await window.FB.getAllFieldEvals();
+      const ev=evSnap.docs.find(d=>d.id==='progeval_'+sid)?.data();
       if(!ev){toast('لم يتم العثور على بيانات التقييم');return;}
       document.getElementById('mr-ti').textContent='استمارة تقييم برنامج التدريب — '+ev.studentName;
       document.getElementById('mr-bd').innerHTML=progEvalFormHTML(sid,true,{...ev,studentName:ev.studentName,date:ev.date||'—'});
@@ -1950,14 +1970,10 @@ async function renderAdvRqList(){
   const el=document.getElementById('adv-rq-list');
   if(!el)return;
   if(!_advStu.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب مسجّلون بعد</p>';return;}
-  // Load existing evals from fieldEvals
   let evalMap={};
   if(window.FB?.ready){
-    const evSnap=await new Promise(res=>{const u=window.FB.watchFieldEvals(sn=>{res(sn);u();});});
-    evSnap.docs.forEach(d=>{
-      const data=d.data();
-      if(data.studentId)evalMap[data.studentId]=data;
-    });
+    const evSnap=await window.FB.getAllFieldEvals();
+    evSnap.docs.forEach(d=>{const data=d.data();if(data.studentId)evalMap[data.studentId]=data;});
   }
   // Sort: rated first, then unrated
   const sorted=[..._advStu].sort((a,b)=>(evalMap[b.id]?1:0)-(evalMap[a.id]?1:0));
@@ -2045,7 +2061,8 @@ async function viewStuReports(sid,sname){
   document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(\'m-rep\')">إغلاق</button>';
   openM('m-rep');
   if(!window.FB?.ready)return;
-  const u=window.FB.watchReports(sid,snap=>{
+  try{
+    const snap=await window.FB.getReports(sid);
     const reps=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.weekNum||0)-(b.weekNum||0));
     const s={id:sid,name:sname};
     let html='<div class="tw"><table><thead><tr><th>التقرير</th><th>الحالة</th><th>التقييم</th><th>إجراء</th></tr></thead><tbody>';
@@ -2056,8 +2073,7 @@ async function viewStuReports(sid,sname){
     html+='</tbody></table></div>';
     document.getElementById('mr-bd').innerHTML=html;
     document.querySelectorAll('[data-vr]').forEach(b=>b.addEventListener('click',()=>{const r=reps.find(x=>x.id===b.dataset.vr);if(r)openRepView(s,r);}));
-    u();
-  });
+  }catch(e){document.getElementById('mr-bd').innerHTML='<p style="color:red;padding:20px;">خطأ: '+e.message+'</p>';}
 }
 function openFSupEval(sid,sname){
   const s=_supStu.find(x=>x.id===sid)||{id:sid,name:sname};
@@ -2191,7 +2207,7 @@ function renderMsgs(msgs){
   area.innerHTML=msgs.sort((a,b)=>(a.ts||0)-(b.ts||0)).map(m=>{
     const mine=m.from===CU?.id;
     return`<div><div class="cm ${mine?'mine':'theirs'}">${escHTML(m.text)}</div>
-      <div class="cmt" style="text-align:${mine?'left':'right'}">${mine?'أنت':m.fromName||''} · ${m.time||''}</div></div>`;
+      <div class="cmt" style="text-align:${mine?'right':'left'}">${mine?'أنت':m.fromName||''} · ${m.time||''}</div></div>`;
   }).join('');
   area.scrollTop=area.scrollHeight; // newest at bottom
 }
@@ -2262,7 +2278,7 @@ async function runInquiry(){
   
   if(filter==='final'){
     // Show students who sent final report
-    const snap=await new Promise(res=>{const u=window.FB.watchFinals(sn=>{res(sn);u();});});
+    const snap=await window.FB.getAllFinals();
     const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.advisorId===CU.id);
     if(!fins.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا يوجد طلاب أرسلوا التقرير النهائي</p>';return;}
     const stlbl={pending_advisor:'بانتظار المراجعة',approved:'معتمد',advisor_declined:'مرفوض'};
@@ -2298,7 +2314,7 @@ async function runInquiry(){
   const weekNum=filter==='none'?null:parseInt(filter);
   const results=[];
   await Promise.all(_advStu.map(async s=>{
-    const snap=await new Promise(res=>{const u=window.FB.watchReports(s.id,sn=>{res(sn);u();});});
+    const snap=await window.FB.getReports(s.id);
     const allReps=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(filter==='none'){
       if(allReps.filter(r=>r.status!=='معلق').length===0) results.push({s,rep:null});
@@ -2357,9 +2373,11 @@ async function runInquiry(){
 
 
 async function openCompanies(){
+  /* Clean up any previous subscription before creating a new one */
+  if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;
   openM('m-comp');
   if(!window.FB?.ready)return;
-  window.FB.watchFieldSupervisors(snap=>{
+  _companiesUnsub=window.FB.watchFieldSupervisors(snap=>{
     _allFieldSups=snap.docs.map(d=>({id:d.id,...d.data()}));
     const companies=[...new Set(_allFieldSups.map(fs=>fs.company||'غير محدد'))];
     const el=document.getElementById('comp-list');
@@ -2388,8 +2406,9 @@ function openEditCompany(co){
     +'<div class="fl">خط الطول (longitude)</div><input class="fi" id="eco-lng" type="number" step="any" value="'+(existingFS?.lng||'')+'">'
     +'<div class="etxt" id="eco-er"></div>';
   document.getElementById('mr-ft').innerHTML=''
-    +'<button class="btn b-p" data-eco="">حفظ ✅</button>'
+    +'<button class="btn b-p" id="eco-sv-btn">حفظ ✅</button>'
     +'<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إلغاء</button>';
+  document.getElementById('eco-sv-btn').addEventListener('click',()=>saveEditCompany(co));
   openM('m-rep');
 }
 async function saveEditCompany(oldName){
@@ -2436,7 +2455,8 @@ async function selectFSup(fsid){
   const el=document.getElementById('comp-stu-list');
   el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">جارٍ التحميل...</p>';
   if(!window.FB?.ready)return;
-  const u=window.FB.watchFieldSupStudents(fsid,snap=>{
+  try{
+    const snap=await window.FB.getFieldSupStudents(fsid);
     const stus=snap.docs.map(d=>({id:d.id,...d.data()}));
     const fs=_allFieldSups.find(f=>f.id===fsid);
     if(!stus.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب</p>';return;}
@@ -2449,8 +2469,7 @@ async function selectFSup(fsid){
       +'</div>'
     ).join('');
     el.querySelectorAll('[data-nfsid]').forEach(b=>b.addEventListener('click',()=>notifyFSup(b.dataset.nfsid,b.dataset.nsid,b.dataset.nsn,b.dataset.nfn)));
-    u();
-  });
+  }catch(e){el.innerHTML='<p style="color:red;padding:16px;">خطأ: '+e.message+'</p>';}
 }
 async function notifyFSup(fsid,sid,sname,fsname){
   if(!window.FB?.ready)return;
