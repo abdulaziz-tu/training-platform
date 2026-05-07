@@ -513,13 +513,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div class="sc"><div class="st2"><div class="sl2">المُرسَلة</div><div class="si2" style="background:#FFF8E1;">⏳</div></div><div class="sv2" id="st-ip">—</div></div>
       <div class="sc"><div class="st2"><div class="sl2">نسبة الإنجاز</div><div class="si2" style="background:#EDE8F8;">📊</div></div><div class="sv2" id="st-pc">—</div></div>
     </div>
-    <!-- Program evaluation card (shown when all reports complete) -->
-    <div id="stu-prog-eval" class="card" style="display:none;border:2px solid var(--p);">
-      <div class="ch"><div class="ct">📋 تقييم البرنامج التدريبي</div><span class="bx bp">مطلوب</span></div>
-      <p style="font-size:13px;color:var(--m);margin-bottom:16px;">أكملت جميع تقاريرك! يُرجى تقييم برنامج التدريب الميداني.</p>
-      <div id="stu-prog-eval-content"></div>
-      <div id="stu-prog-eval-footer" style="margin-top:14px;"></div>
-    </div>
+
     <div class="card">
       <div class="ch"><div class="ct">تقاريري الدورية الأسبوعية</div></div>
       <div class="tw"><table>
@@ -545,6 +539,10 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
   </div>
   <div class="db">
     <div id="adv-notif-area"></div>
+    <div id="adv-progeval-notif" class="card" style="display:none;border:2px solid var(--p);">
+      <div class="ch"><div class="ct">📬 استمارات تقييم البرنامج التدريبي الواردة</div><button class="tb" onclick="document.getElementById('adv-progeval-notif').style.display='none'">−</button></div>
+      <div id="adv-progeval-list"></div>
+    </div>
     <div class="sg">
       <div class="sc"><div class="st2"><div class="sl2">إجمالي الطلاب</div><div class="si2" style="background:#E3F0FB;">👤</div></div><div class="sv2" id="adv-cnt">—</div></div>
       <div class="sc"><div class="st2"><div class="sl2">إجمالي التقارير</div><div class="si2" style="background:#FFEAEA;">📄</div></div><div class="sv2" id="adv-tot">—</div></div>
@@ -562,7 +560,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div id="adv-dc"></div>
     </div>
     <div class="card">
-      <div class="ch"><div class="ct">⭐ طلب تقييم طالب من مشرف التدريب</div><button class="tb" id="adv-rq-exp" onclick="togAdvRqPanel()">+</button></div>
+      <div class="ch"><div class="ct">⭐ تقييم الطلاب</div><button class="tb" id="adv-rq-exp" onclick="togAdvRqPanel()">+</button></div>
       <div id="adv-rq-panel" style="display:none;">
         <p style="font-size:13px;color:var(--m);margin-bottom:14px;">اختر طالباً لطلب تقييمه من مشرف التدريب. سيصله إشعار لتعبئة استمارة التقييم.</p>
         <div id="adv-rq-list"></div>
@@ -581,7 +579,6 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div class="dtr"><div class="da" id="sup-av">م</div><div class="dtt"><h2>لوحة تحكم مشرف التدريب</h2><span id="sup-nm">—</span></div></div>
     <div class="dta">
       <button class="bt bt-msg" id="sup-chat-btn" onclick="openChat()">💬 مراسلة المرشدين</button>
-      <button class="bt" style="background:#E8F5E9;border-color:#C8E6C9;color:#2E7D32;" onclick="openFSupEvalForm()">📋 استمارة التقييم</button>
       <button class="bt bt-lo" onclick="doLogout()">&#8592; خروج</button>
     </div>
   </div>
@@ -609,6 +606,11 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div id="sup-fp" class="card" style="display:none;">
       <div class="ch"><div class="ct">📋 تقييم الطلاب</div><button class="tb" onclick="document.getElementById('sup-fp').style.display='none'">−</button></div>
       <div id="sup-fc"></div>
+    </div>
+    <!-- Program eval notifications from students completing all reports -->
+    <div id="sup-progeval-card" class="card" style="display:none;">
+      <div class="ch"><div class="ct">📋 استمارة تقييم برنامج التدريب الميداني</div><button class="tb" onclick="document.getElementById('sup-progeval-card').style.display='none'">−</button></div>
+      <div id="sup-progeval-list"></div>
     </div>
   </div>
 </div>
@@ -696,6 +698,10 @@ function updateUnreadDot(btnId){
 
 function watchUnread(){
   if(!CU||!window.FB?.ready)return;
+  // Also watch own doc for lastMsg timestamps
+  window.FB.watchUser(CU.id,snap=>{
+    if(snap.exists()) window._cuUserData=snap.data();
+  });
   const chatBtnId=CR==='student'?'stu-chat-btn':CR==='advisor'?'adv-chat-btn':'sup-chat-btn';
   // Watch user doc for unreadConvs field
   const unsb=window.FB.watchUser(CU.id,snap=>{
@@ -774,13 +780,9 @@ function renderStuReps(reps){
   const ip=reps.filter(r=>r.status==='مُرسَل').length;
   const pc=reps.length?Math.round(dn/reps.length*100):0;
   setEl('st-tot',reps.length);setEl('st-dn',dn);setEl('st-ip',ip);setEl('st-pc',pc+'%');
-  // Show program eval if all reports completed
-  const progEvalCard=document.getElementById('stu-prog-eval');
-  if(progEvalCard){
-    if(reps.length>0&&dn===reps.length){
-      progEvalCard.style.display='block';
-      openStuProgEval();
-    } else {progEvalCard.style.display='none';}
+  // When student completes all reports → send notification to supervisor to fill program eval
+  if(reps.length>0&&dn===reps.length){
+    notifySupForProgEval();
   }
   // Next available unlocked
   const nx=reps.find(r=>r.status!=='مكتمل'&&isAvailable(CU.trainingStartDate,r.weekNum));
@@ -807,16 +809,22 @@ function renderStuReps(reps){
       <td>${strs(r.rating||null)}</td>
       <td>
         ${(dec||adec)?`<div class="dcb"><div class="dcl">${adec?'ملاحظة المرشد:':'ملاحظة المشرف:'}</div><div class="dct">${r.declineComment||r.supervisorComment||'—'}</div></div>`:''}
-        ${can?`<button class="btn b-s b-sm" data-rid="${r.id}">رفع التقرير ⬆</button>`
-          :locked?''
-          :r.status==='مُرسَل'?'<span style="font-size:12px;color:var(--m);">بانتظار المشرف</span>'
-          :r.status==='مكتمل'?'<span style="font-size:12px;color:#1B6B35;">✅ مكتمل</span>'
-          :'<span style="font-size:12px;color:var(--m);">قيد المراجعة</span>'}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${can?`<button class="btn b-s b-sm" data-rid="${r.id}">رفع ⬆</button>`
+            :locked?''
+            :r.status==='مُرسَل'?'<span style="font-size:12px;color:var(--m);">بانتظار المشرف</span>'
+            :r.status==='مكتمل'?'<span style="font-size:12px;color:#1B6B35;">✅ مكتمل</span>'
+            :'<span style="font-size:12px;color:var(--m);">قيد المراجعة</span>'}
+          ${(!locked&&r.status!=='معلق')?`<button class="btn b-v b-sm" data-view-rid="${r.id}">عرض 📄</button>`:''}
+        </div>
       </td>
     </tr>`;
   }).join('');
   tbody.querySelectorAll('[data-rid]').forEach(btn=>{
     btn.addEventListener('click',()=>{const r=reps.find(x=>x.id===btn.dataset.rid);if(r)openStuRep(r);});
+  });
+  tbody.querySelectorAll('[data-view-rid]').forEach(btn=>{
+    btn.addEventListener('click',()=>{const r=reps.find(x=>x.id===btn.dataset.viewRid||x.id===btn.getAttribute('data-view-rid'));if(r)viewStuReport(r);});
   });
 }
 
@@ -839,6 +847,31 @@ function updStuFinal(data){
   if((s==='supervisor_declined'||s==='advisor_declined')&&data?.declineComment){
     if(desc)desc.textContent=`تعليق: ${data.declineComment}`;
   } else {if(desc)desc.textContent='أرسل تقريرك النهائي لمشرف التدريب';}
+}
+
+
+function viewStuReport(r){
+  const c2=r.content||{};
+  document.getElementById('mr-ti').textContent=r.reportTitle||'التقرير';
+  document.getElementById('mr-bd').innerHTML=
+    '<div class="rs"><h4>حالة التقرير</h4>'
+    +'<div class="rig">'
+    +'<div class="rit"><div class="ril">الحالة</div><div class="riv">'+bdg(r.status)+'</div></div>'
+    +'<div class="rit"><div class="ril">اعتماد المشرف</div><div class="riv">'+(r.supervisorStatus?bdg(r.supervisorStatus):'—')+'</div></div>'
+    +'<div class="rit"><div class="ril">تقييم المرشد</div><div class="riv">'+strs(r.rating||null)+'</div></div>'
+    +'<div class="rit"><div class="ril">تاريخ الرفع</div><div class="riv">'+(r.submittedAt?new Date(r.submittedAt).toLocaleDateString('ar-SA'):'—')+'</div></div>'
+    +'</div></div>'
+    +(r.supervisorComment||r.declineComment?'<div class="dcb"><div class="dcl">ملاحظات المشرف:</div><div class="dct">'+(r.supervisorComment||r.declineComment)+'</div></div>':'')
+    +(r.comment?'<div class="dcb" style="background:#EDE8F8;border-color:var(--b);"><div class="dcl" style="color:var(--p);">ملاحظات المرشد الأكاديمي:</div><div class="dct">'+r.comment+'</div></div>':'')
+    +'<div class="rs"><h4>محتوى التقرير</h4>'
+    +'<div class="fl">1) الهدف</div><div class="rv">'+(c2.goal||'—')+'</div>'
+    +'<div class="fl">2) المهام</div><div class="rv" style="white-space:pre-line;">'+(c2.tasks||'—')+'</div>'
+    +'<div class="fl">3) البرامج</div><div class="rv">'+(c2.programs||'—')+'</div>'
+    +'<div class="fl">4) الفوائد</div><div class="rv">'+(c2.benefits||'—')+'</div>'
+    +'<div class="fl">5) الاقتراحات</div><div class="rv">'+(c2.suggestions||'—')+'</div>'
+    +'</div>';
+  document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+  openM('m-rep');
 }
 
 function openStuRep(r){
@@ -999,6 +1032,18 @@ function buildAdv(){
   }));
   _unsub.push(window.FB.watchAllSupervisors(snap=>{
     _allSupervisors=snap.docs.map(d=>({id:d.id,...d.data()}));
+  // Watch new program evals from supervisor
+  _unsub.push(window.FB.watchUser(CU.id,snap=>{
+    if(!snap.exists())return;
+    const newEvals=snap.data()?.newProgEvals||[];
+    renderAdvProgEvals(newEvals);
+  }));
+  }));
+  // Watch new program evals from supervisor
+  _unsub.push(window.FB.watchUser(CU.id,snap=>{
+    if(!snap.exists())return;
+    const newEvals=snap.data()?.newProgEvals||[];
+    renderAdvProgEvals(newEvals);
   }));
   _unsub.push(window.FB.watchFieldSupervisors(snap=>{
     _allFieldSups=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1130,57 +1175,49 @@ function openRepView(s,r){
 
 function renderAdvFinals(fins){
   const el=document.getElementById('adv-fins');
-  const pending=fins.filter(f=>f.status==='pending_advisor');
-  const done=fins.filter(f=>f.status==='approved');
   if(!fins.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا توجد تقارير نهائية</p>';return;}
-  el.innerHTML=[...pending,...done].map(f=>`
-    <div style="padding:16px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:14px;">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:${f.status==='supervisor_approved'?'14':'0'}px;">
-        <div class="sav">${(f.studentName||'?')[0]}</div>
-        <div style="flex:1;"><div style="font-weight:700;">${f.studentName||'—'}</div><div style="font-size:12px;color:var(--m);">${f.title||'—'}</div></div>
-        ${(f.status==='pending_advisor')?`<span class="bx bp">بانتظار موافقتك</span>`:`<span class="bx bd">✅ معتمد</span>`}
-        <button class="btn b-v b-sm" data-fv="${f.id}">عرض التفاصيل</button>
-        ${f.file?.name?`<button class="btn b-s b-sm" onclick="downloadFinalFile('${f.id}')">⬇ تحميل الملف</button>`:''}
-      </div>
-      ${f.status==='supervisor_approved'?`
-        <div style="border-top:1px solid var(--b);padding-top:14px;">
-          <div style="font-size:13px;padding:10px;background:#fff;border-radius:8px;margin-bottom:12px;"><strong>المستخلص:</strong> ${f.abstract||'—'}</div>
-          ${f.supervisorEval?`<div style="background:#F0EBFB;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;">
-            <div style="font-weight:700;margin-bottom:8px;color:var(--p);">📊 تقييم مشرف التدريب — ${f.supervisorEval.evaluatorName||''}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-              <span>الأداء: ${f.supervisorEval.overall}/5</span>
-              <span>الالتزام: ${f.supervisorEval.commitment}/5</span>
-              <span>جودة العمل: ${f.supervisorEval.quality}/5</span>
-              <span>السلوك: ${f.supervisorEval.behavior}/5</span>
-              <span>التقرير: ${f.supervisorEval.reportQuality}/5</span>
-              <span>المعدل: <strong>${f.supervisorEval.average}/5</strong></span>
-            </div>
-            <div style="margin-top:6px;">التوصية: <strong style="color:${f.supervisorEval.recommendation==='ناجح'?'#1B6B35':'#721C24'}">${f.supervisorEval.recommendation}</strong></div>
-            ${f.supervisorEval.comment?`<div style="margin-top:4px;color:var(--m);">ملاحظة: ${f.supervisorEval.comment}</div>`:''}
-          </div>`:''}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn b-a b-sm" data-fadv-appr="${f.id}">اعتماد التقرير النهائي ✅</button>
-            <button class="btn b-r b-sm" data-fadv-decl="${f.id}">رفض وإعادة للطالب ❌</button>
-          </div>
-          <div id="adv-fdecl-${f.id}" style="display:none;margin-top:10px;">
-            <textarea class="fi" id="adv-fc-${f.id}" rows="3" placeholder="اكتب سبب الرفض للطالب..."></textarea>
-            <button class="btn b-r b-sm" data-fadv-cf="${f.id}">تأكيد الرفض وإشعار المشرف</button>
-          </div>
-        </div>`:''}
-    </div>`).join('');
+  const pending=fins.filter(f=>f.status==='pending_advisor');
+  const done=fins.filter(f=>f.status!=='pending_advisor');
+  el.innerHTML=[...pending,...done].map(f=>{
+    const isPend=f.status==='pending_advisor';
+    let html='<div style="padding:16px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:14px;">';
+    html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:'+(isPend?'12':'0')+'px;">';
+    html+='<div class="sav">'+(f.studentName||'?')[0]+'</div>';
+    html+='<div style="flex:1;min-width:0;"><div style="font-weight:700;">'+(f.studentName||'—')+'</div><div style="font-size:12px;color:var(--m);">'+(f.title||'—')+'</div></div>';
+    html+=(isPend?'<span class="bx bp">بانتظار موافقتك</span>':'<span class="bx bd">✅ معتمد</span>');
+    html+='<button class="btn b-v b-sm" data-fv="'+f.id+'">عرض 📄</button>';
+    if(f.file?.name) html+='<button class="btn b-s b-sm" data-dl-fid="'+f.id+'">⬇ الملف</button>';
+    if(isPend){
+      html+='<button class="btn b-a b-sm" data-fadv-appr="'+f.id+'">اعتماد ✅</button>';
+      html+='<button class="btn b-r b-sm" data-fadv-decl="'+f.id+'">رفض ❌</button>';
+    }
+    html+='</div>';
+    if(isPend){
+      html+='<div style="font-size:13px;padding:8px;background:#fff;border-radius:8px;margin-bottom:8px;"><strong>المستخلص:</strong> '+(f.abstract||'—')+'</div>';
+      html+='<div id="adv-fdecl-'+f.id+'" style="display:none;margin-top:8px;">';
+      html+='<textarea class="fi" id="adv-fc-'+f.id+'" rows="2" placeholder="سبب الرفض للطالب..."></textarea>';
+      html+='<button class="btn b-r b-sm" data-fadv-cf="'+f.id+'">تأكيد الرفض</button></div>';
+    }
+    // Show extra files if any
+    if(f.file2?.name||f.file3?.name){
+      html+='<div style="font-size:12px;color:var(--m);margin-top:6px;">📎 ملفات مرفقة: '+(f.file2?.name||'')+(f.file3?.name?' | '+f.file3.name:'')+'</div>';
+    }
+    html+='</div>';
+    return html;
+  }).join('');
   el.querySelectorAll('[data-fv]').forEach(b=>b.addEventListener('click',()=>viewFinalMod(b.dataset.fv)));
+  el.querySelectorAll('[data-dl-fid]').forEach(b=>b.addEventListener('click',()=>downloadFinalFile(b.dataset.dlFid)));
   el.querySelectorAll('[data-fadv-appr]').forEach(b=>b.addEventListener('click',async()=>{
-    const fid=b.dataset.fadvAppr||b.getAttribute('data-fadv-appr');
-    await advFinalAction(fid,true,'');
+    await advFinalAction(b.getAttribute('data-fadv-appr'),true,'');
   }));
   el.querySelectorAll('[data-fadv-decl]').forEach(b=>b.addEventListener('click',()=>{
     const fid=b.getAttribute('data-fadv-decl');
-    const fd=document.getElementById(`adv-fdecl-${fid}`);
+    const fd=document.getElementById('adv-fdecl-'+fid);
     if(fd)fd.style.display=fd.style.display==='none'?'block':'none';
   }));
   el.querySelectorAll('[data-fadv-cf]').forEach(b=>b.addEventListener('click',async()=>{
     const fid=b.getAttribute('data-fadv-cf');
-    const cm=document.getElementById(`adv-fc-${fid}`)?.value.trim();
+    const cm=document.getElementById('adv-fc-'+fid)?.value.trim();
     if(!cm){toast('يرجى كتابة سبب الرفض');return;}
     await advFinalAction(fid,false,cm);
   }));
@@ -1198,14 +1235,28 @@ async function advFinalAction(fid,approve,comment){
   }
 }
 
-function downloadFinalFile(fid){
+function downloadFinalFile(fid,fileNum){
   if(!window.FB?.ready)return;
-  window.FB.watchFinals(snap=>{
+  const u=window.FB.watchFinals(snap=>{
     const f=snap.docs.find(d=>d.id===fid)?.data();
-    if(!f?.file?.base64){toast('لا يوجد ملف محفوظ');return;}
-    const a=document.createElement('a');
-    a.href=`data:${f.file.type||'application/octet-stream'};base64,${f.file.base64}`;
-    a.download=f.file.name||'report';a.click();
+    u();
+    const files=[f?.file,f?.file2,f?.file3].filter(Boolean);
+    if(!files.length){toast('لا يوجد ملفات محفوظة');return;}
+    // If fileNum specified download that one, else offer all
+    if(fileNum!==undefined&&files[fileNum]?.base64){
+      const af=files[fileNum];
+      const a=document.createElement('a');
+      a.href='data:'+(af.type||'application/octet-stream')+';base64,'+af.base64;
+      a.download=af.name||'file';a.click();
+    } else {
+      // Download all available files
+      files.forEach(af=>{
+        if(!af.base64)return;
+        const a=document.createElement('a');
+        a.href='data:'+(af.type||'application/octet-stream')+';base64,'+af.base64;
+        a.download=af.name||'file';a.click();
+      });
+    }
   });
 }
 
@@ -1221,15 +1272,18 @@ function buildSup(){
     setEl('sup-tot',_supStu.length);setEl('sup-sl',`${_supStu.length} طالب`);
     renderSupList();
   }));
-  // Watch pending evals on supervisor's user doc
+  // Watch pending student evals (from advisor requests)
   _unsub.push(window.FB.watchUser(CU.id,snap=>{
     if(!snap.exists())return;
     const data=snap.data();
     const pending=data.pendingEvals||[];
+    const pendingProg=data.pendingProgEvals||[];
     const notifArea=document.getElementById('sup-notif-area');
     if(pending.length&&notifArea){
       notifArea.innerHTML='<div class="notif-ban"><div class="ni">📋</div><div class="nt">طُلب منك تقييم '+pending.length+' طالب — <button class="btn b-p b-sm" style="margin-right:8px;" onclick="openSupFins()">عرض التقييمات</button></div></div>';
     } else if(notifArea) notifArea.innerHTML='';
+    // Show pending program evals
+    renderSupProgEvals(pendingProg);
   }));
   loadAdvForSup();
 }
@@ -1252,12 +1306,17 @@ async function loadAdvForSup(){
 function renderSupList(){
   const SHOW=4,toShow=_supAll?_supStu:_supStu.slice(0,SHOW);
   document.getElementById('sup-exp').textContent=(_supAll&&_supStu.length>SHOW)?'−':'+';
-  document.getElementById('sup-sl2').innerHTML=toShow.length?toShow.map(s=>`
-    <div class="sr${_supSel===s.id?' sel':''}" data-sid="${s.id}">
-      <div class="sav">${(s.name||'?')[0]}</div>
-      <div style="flex:1;"><div class="sn">${s.name}</div><div class="se">${s.email}</div></div>
-      <div class="sm2">${s.company||'—'}</div>
-    </div>`).join(''):'<p style="color:var(--m);text-align:center;padding:20px;">لا يوجد متدربون بعد</p>';
+  document.getElementById('sup-sl2').innerHTML=toShow.length?toShow.map(s=>{
+    const rated=!!(s.supervisorEval);
+    return '<div class="sr'+(_supSel===s.id?' sel':'')+'" data-sid="'+s.id+'">'
+      +'<div style="position:relative;"><div class="sav">'+( s.name||'?')[0]+'</div>'
+      +(rated?'<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#27AE60;border-radius:50%;border:2px solid #fff;" title="مُقيّم"></div>':'')
+      +'</div>'
+      +'<div style="flex:1;min-width:0;"><div class="sn">'+s.name+'</div><div class="se">'+s.email+'</div></div>'
+      +(rated?'<span class="bx bd" style="font-size:11px;white-space:nowrap;">✅ مُقيّم</span>':'')
+      +'<div class="sm2">'+(s.company||'—')+'</div>'
+      +'</div>';
+  }).join(''):'<p style="color:var(--m);text-align:center;padding:20px;">لا يوجد متدربون بعد</p>';
   document.querySelectorAll('#sup-sl2 .sr').forEach(row=>row.addEventListener('click',()=>supSel(row.dataset.sid)));
 }
 function togSup(){if(_supStu.length<=4)return;_supAll=!_supAll;renderSupList();}
@@ -1729,6 +1788,99 @@ function collectProgEval(uid){
 }
 
 
+
+
+function renderAdvProgEvals(newEvals){
+  const card=document.getElementById('adv-progeval-notif');
+  const el=document.getElementById('adv-progeval-list');
+  if(!card||!el)return;
+  if(!newEvals.length){card.style.display='none';return;}
+  card.style.display='block';
+  el.innerHTML='<p style="font-size:13px;color:var(--m);margin-bottom:12px;">استمارات تقييم برنامج التدريب الميداني المُرسَلة من مشرف التدريب:</p>'
+    +newEvals.map(e=>'<div style="padding:12px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<div class="sav">'+(e.studentName||'?')[0]+'</div>'
+      +'<div style="flex:1;"><div style="font-weight:700;">'+e.studentName+'</div>'
+      +'<div style="font-size:12px;color:var(--m);">من: '+e.supervisorName+' — '+(e.submittedAt?new Date(e.submittedAt).toLocaleDateString('ar-SA'):'')+'</div></div>'
+      +'<button class="btn b-v b-sm" data-ape-sid="'+e.studentId+'">عرض الاستمارة 📋</button>'
+      +'</div>'
+    ).join('');
+  el.querySelectorAll('[data-ape-sid]').forEach(b=>{
+    b.addEventListener('click',async()=>{
+      const sid=b.dataset.apeSid;
+      if(!window.FB?.ready)return;
+      const snap=await new Promise(res=>{const u=window.FB.watchFieldEvals(sn=>{res(sn);u();});});
+      const ev=snap.docs.find(d=>d.id==='progeval_'+sid)?.data();
+      if(!ev){toast('لم يتم العثور على بيانات التقييم');return;}
+      document.getElementById('mr-ti').textContent='استمارة تقييم برنامج التدريب — '+ev.studentName;
+      document.getElementById('mr-bd').innerHTML=progEvalFormHTML(sid,true,{...ev,studentName:ev.studentName,date:ev.date||'—'});
+      document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+      openM('m-rep');
+    });
+  });
+}
+
+function renderSupProgEvals(pendingProg){
+  const card=document.getElementById('sup-progeval-card');
+  const el=document.getElementById('sup-progeval-list');
+  if(!card||!el)return;
+  if(!pendingProg.length){card.style.display='none';return;}
+  card.style.display='block';
+  el.innerHTML='<p style="font-size:13px;color:var(--m);margin-bottom:14px;">أكمل الطلاب التاليون تقاريرهم — يرجى تعبئة استمارة تقييم برنامج التدريب الميداني لكل منهم وإرسالها للمرشد الأكاديمي.</p>'
+    +pendingProg.map(p=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      +'<div class="sav">'+(p.studentName||'?')[0]+'</div>'
+      +'<div style="flex:1;min-width:0;"><div style="font-weight:700;">'+p.studentName+'</div>'
+      +'<div style="font-size:12px;color:var(--m);">'+(p.dept||'—')+' | '+(p.company||'—')+'</div></div>'
+      +(p.submitted
+        ?'<span class="bx bd">✅ تم الإرسال</span>'
+        :'<button class="btn b-p b-sm" data-spe-sid="'+p.studentId+'" data-spe-sn="'+p.studentName+'" data-spe-co="'+p.company+'" data-spe-dept="'+p.companyDept+'">📋 تعبئة الاستمارة</button>')
+      +'</div>'
+    ).join('');
+  el.querySelectorAll('[data-spe-sid]').forEach(b=>{
+    b.addEventListener('click',()=>openSupProgEvalForm(b.dataset.speSid,b.dataset.speSn,b.dataset.speCo,b.dataset.speDept));
+  });
+}
+
+function openSupProgEvalForm(sid,sname,company,companyDept){
+  document.getElementById('feval-bd').innerHTML=progEvalFormHTML(sid,false,{studentName:sname,company:company||CU.company||'',companyDept:companyDept||'',supervisor:CU.name});
+  // Add header info fields
+  const hdrInfo='<div class="fg2" style="margin-bottom:0;"><div><div class="fl">الأقسام التي تم فيها التدريب</div><input class="fi" id="spe-depts-'+sid+'" type="text" value="'+(companyDept||'')+'"></div>'
+    +'<div><div class="fl">التاريخ</div><input class="fi" id="spe-date-'+sid+'" type="date" value="'+new Date().toISOString().split('T')[0]+'"></div></div>';
+  document.getElementById('feval-bd').innerHTML=hdrInfo+document.getElementById('feval-bd').innerHTML;
+  document.getElementById('feval-ft').innerHTML='<button class="btn b-p" id="spe-submit-btn">إرسال للمرشد الأكاديمي 📤</button>'
+    +'<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-feval&apos;)">إلغاء</button>';
+  document.getElementById('spe-submit-btn').onclick=()=>submitSupProgEval(sid,sname,company);
+  openM('m-feval');
+}
+
+async function submitSupProgEval(sid,sname,company){
+  const data=collectProgEval(sid);
+  const hasAll=data.ratings.every(r=>r.rating!==null);
+  if(!hasAll){toast('يرجى تقييم جميع العناصر السبعة');return;}
+  data.studentId=sid;data.studentName=sname;data.company=company;
+  data.supervisorName=CU.name;data.submittedAt=new Date().toISOString();
+  data.date=document.getElementById('spe-date-'+sid)?.value||'';
+  if(!window.FB?.ready)return;
+  // Save program eval linked to student
+  await window.FB.setFieldEval('progeval_'+sid,data);
+  // Mark as submitted in supervisor's pendingProgEvals
+  const supSnap=await window.FB.getUser(CU.id);
+  const pending=(supSnap.data()?.pendingProgEvals||[]).map(p=>p.studentId===sid?{...p,submitted:true}:p);
+  await window.FB.updateUser(CU.id,{pendingProgEvals:pending});
+  // Notify advisor
+  if(window.FB?.ready){
+    const stuSnap=await window.FB.getUser(sid);
+    const advId=stuSnap.data()?.advisorId;
+    if(advId){
+      await window.FB.updateUser(advId,{newProgEvals:window.FB.arrayUnion({
+        studentId:sid,studentName:sname,supervisorName:CU.name,submittedAt:data.submittedAt
+      })});
+    }
+  }
+  closeM('m-feval');
+  toast('✅ تم إرسال استمارة تقييم برنامج التدريب لـ '+sname+' للمرشد الأكاديمي');
+  renderSupProgEvals(pending);
+}
+
 function togAdvRqPanel(){
   const panel=document.getElementById('adv-rq-panel');
   const expanded=panel.style.display==='block';
@@ -1736,28 +1888,51 @@ function togAdvRqPanel(){
   document.getElementById('adv-rq-exp').textContent=expanded?'+':'−';
   if(!expanded) renderAdvRqList();
 }
-function renderAdvRqList(){
+async function renderAdvRqList(){
   const el=document.getElementById('adv-rq-list');
   if(!el)return;
   if(!_advStu.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب مسجّلون بعد</p>';return;}
-  el.innerHTML=_advStu.map(s=>{
+  // Load existing evals from fieldEvals
+  let evalMap={};
+  if(window.FB?.ready){
+    const evSnap=await new Promise(res=>{const u=window.FB.watchFieldEvals(sn=>{res(sn);u();});});
+    evSnap.docs.forEach(d=>{
+      const data=d.data();
+      if(data.studentId)evalMap[data.studentId]=data;
+    });
+  }
+  // Sort: rated first, then unrated
+  const sorted=[..._advStu].sort((a,b)=>(evalMap[b.id]?1:0)-(evalMap[a.id]?1:0));
+  el.innerHTML=sorted.map(s=>{
     const supId=s.supervisorId||s.supervisorId2;
     const sup=_allSupervisors.find(x=>x.id===supId)||_allFieldSups.find(x=>x.id===supId);
-    return '<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;flex-wrap:wrap;">'
-      +'<div class="sav">'+(s.name||'?')[0]+'</div>'
+    const ev=evalMap[s.id];
+    return '<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;flex-wrap:wrap;">'
+      +'<div style="position:relative;"><div class="sav">'+(s.name||'?')[0]+'</div>'
+      +(ev?'<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#27AE60;border-radius:50%;border:2px solid #fff;"></div>':'')
+      +'</div>'
       +'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">'+s.name+'</div>'
       +'<div style="font-size:12px;color:var(--m);">مشرف التدريب: '+(sup?.name||'غير محدد')+'</div></div>'
-      +(supId
-        ?'<button class="btn b-p b-sm" data-rq-sid="'+s.id+'" data-rq-snm="'+s.name+'" data-rq-fid="'+supId+'" data-rq-fnm="'+(sup?.name||'')+'">⭐ طلب تقييم</button>'
-        :'<span style="font-size:12px;color:#D94040;">لا يوجد مشرف تدريب</span>')
+      +(ev
+        ?'<button class="btn b-a b-sm" data-view-ev="'+s.id+'">عرض التقييم 📋</button>'
+        :(supId?'<button class="btn b-p b-sm" data-rq-sid="'+s.id+'" data-rq-snm="'+s.name+'" data-rq-fid="'+supId+'" data-rq-fnm="'+(sup?.name||'')+'">⭐ طلب تقييم</button>'
+          :'<span style="font-size:12px;color:#D94040;">لا يوجد مشرف تدريب</span>'))
       +'</div>';
   }).join('');
   el.querySelectorAll('[data-rq-sid]').forEach(b=>{
     b.addEventListener('click',async()=>{
-      const sid=b.dataset.rqSid,sname=b.dataset.rqSnm;
-      const fsid=b.dataset.rqFid,fsname=b.dataset.rqFnm;
-      await notifyFSup(fsid,sid,sname,fsname);
-      b.disabled=true;b.textContent='✅ أُرسل';
+      await notifyFSup(b.dataset.rqFid,b.dataset.rqSid,b.dataset.rqSnm,b.dataset.rqFnm);
+      b.disabled=true;b.textContent='✅ أُرسل الطلب';
+    });
+  });
+  el.querySelectorAll('[data-view-ev]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const sid=b.dataset.viewEv;const ev2=evalMap[sid];
+      if(!ev2)return;
+      document.getElementById('mr-ti').textContent='تقييم — '+(sorted.find(s=>s.id===sid)?.name||'');
+      document.getElementById('mr-bd').innerHTML=stuEvalFormHTML(sid,true,ev2);
+      document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+      openM('m-rep');
     });
   });
 }
@@ -1912,11 +2087,15 @@ function openChatWith(cid2,cnm){
 function renderChatCtx(){
   const el=document.getElementById('cc-list');
   if(!_chatCtx.length){el.innerHTML='<div class="cempty" style="padding:20px;font-size:13px;">لا توجد محادثات متاحة</div>';return;}
-  // Sort contacts: unread first, then by latest message (newest on top)
+  // Sort contacts: unread first, then by last message time (newest on top)
+  const ud=window._cuUserData||{};
   const sortedCtx=[..._chatCtx].sort((a,b)=>{
     const aUnread=_unreadConvs.has(cid(CU?.id||'',a.id))?1:0;
     const bUnread=_unreadConvs.has(cid(CU?.id||'',b.id))?1:0;
-    return bUnread-aUnread;
+    if(bUnread!==aUnread)return bUnread-aUnread;
+    const aTime=ud['lastMsg_'+cid(CU?.id||'',a.id)]||0;
+    const bTime=ud['lastMsg_'+cid(CU?.id||'',b.id)]||0;
+    return bTime-aTime;
   });
   el.innerHTML=sortedCtx.map(c=>{
     const cv=cid(CU?.id||'',c.id);
@@ -1964,12 +2143,18 @@ function escHTML(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 async function sendMsg(){
   const inp=document.getElementById('c-inp'),text=inp?.value?.trim();
   if(!text||!_chatConvId||!CU||!window._chatOtherId)return;
-  const msg={from:CU.id,fromName:CU.name||'أنت',text,time:nowt()};
+  const msg={from:CU.id,fromName:CU.name||'أنت',text,time:nowt(),ts:Date.now()};
   inp.value='';
   if(window.FB?.ready){
     await window.FB.addMsg(_chatConvId,msg);
-    // Mark unread for recipient
+    // Store last msg time on user doc for sorting
+    const lastKey='lastMsg_'+_chatConvId;
+    const lu={};lu[lastKey]=Date.now();
+    await window.FB.updateUser(CU.id,lu);
     await markConvUnread(_chatConvId,window._chatOtherId);
+    // Also store on recipient's doc
+    const lu2={};lu2[lastKey]=Date.now();
+    await window.FB.updateUser(window._chatOtherId,lu2);
   }
 }
 
