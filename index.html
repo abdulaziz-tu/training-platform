@@ -334,14 +334,8 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
             </div>
             <div>
               <div class="fl">مشرف التدريب</div>
-              <select class="fi" id="u-sup">
-                <option value="">— اختر مشرف التدريب —</option>
-              </select>
-            </div>
-            <div>
-              <div class="fl">مشرف التدريب (الميداني)</div>
               <select class="fi" id="u-fsup">
-                <option value="">— اختر المشرف الميداني —</option>
+                <option value="">— اختر مشرف التدريب —</option>
               </select>
             </div>
             <div><div class="fl">الرقم الجامعي</div><input class="fi" id="u-uid" type="text" placeholder="202112345"></div>
@@ -364,7 +358,12 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
         <div id="sf-fs" style="display:none;border-top:1px solid var(--b);padding-top:16px;margin-top:4px;">
           <div style="font-size:14px;font-weight:700;color:var(--pink);margin-bottom:12px;">🏢 بيانات مشرف التدريب (الميداني)</div>
           <div class="fg2">
-            <div><div class="fl">جهة التدريب (الشركة) *</div><input class="fi" id="fs-co" type="text" placeholder="أرامكو / سابك..."></div>
+            <div>
+              <div class="fl">جهة التدريب (الشركة) *</div>
+              <input class="fi" id="fs-co" type="text" placeholder="اكتب اسم الجهة..." list="comp-datalist" oninput="autoFillCompany(this.value)">
+              <datalist id="comp-datalist"></datalist>
+              <div style="font-size:11px;color:var(--m);margin-top:-8px;margin-bottom:8px;">اكتب الاسم — إن وُجد سيملأ البيانات تلقائياً، وإلا أضفها يدوياً</div>
+            </div>
             <div><div class="fl">رقم الهاتف *</div><input class="fi" id="fs-ph" type="tel" placeholder="05xxxxxxxx"></div>
             <div><div class="fl">عنوان الشركة</div><input class="fi" id="fs-addr" type="text" placeholder="الرياض، حي النزهة"></div>
             <div><div class="fl">إحداثيات خرائط Google (خط العرض)</div><input class="fi" id="fs-lat" type="number" step="any" placeholder="24.7136"></div>
@@ -395,13 +394,19 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div class="mh"><div class="mti">🔍 صندوق الاستعلام</div><button class="mcl" onclick="closeM('m-inq')">✕</button></div>
     <div class="mbd" style="padding:0;">
       <div style="padding:20px;background:#F9F7FF;border-bottom:1px solid var(--b);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <div class="fl" style="margin-bottom:0;white-space:nowrap;">استعلم عن طلاب الذين رفعوا:</div>
+        <div class="fl" style="margin-bottom:0;white-space:nowrap;">استعلم عن طلاب رفعوا:</div>
         <select class="fi" id="inq-filter" style="margin-bottom:0;width:auto;min-width:220px;">
           <option value="none">لم يرفعوا أي تقرير</option>
           <option value="1">التقرير الأول فقط</option>
           <option value="2">التقرير الثاني فقط</option>
           <option value="3">التقرير الثالث فقط</option>
-          <option value="1-3">التقارير من 1 إلى 3</option>
+          <option value="4">التقرير الرابع فقط</option>
+          <option value="5">التقرير الخامس فقط</option>
+          <option value="6">التقرير السادس فقط</option>
+          <option value="7">التقرير السابع فقط</option>
+          <option value="8">التقرير الثامن فقط</option>
+          <option value="9">التقرير التاسع فقط</option>
+          <option value="10">التقرير العاشر فقط</option>
         </select>
         <button class="btn b-p b-sm" onclick="runInquiry()">بحث 🔍</button>
       </div>
@@ -414,16 +419,25 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 <div class="mo" id="m-comp">
   <div class="mb" style="max-width:900px;">
     <div class="mh"><div class="mti">🏢 جهات التدريب</div><button class="mcl" onclick="closeM('m-comp')">✕</button></div>
-    <div class="mbd" style="padding:0;display:flex;height:500px;">
-      <!-- Companies list -->
-      <div style="width:220px;border-left:1px solid var(--b);overflow-y:auto;background:#F9F7FF;flex-shrink:0;" id="comp-list"></div>
-      <!-- Field supervisors list -->
-      <div style="width:220px;border-left:1px solid var(--b);overflow-y:auto;background:#fff;flex-shrink:0;" id="comp-fsup-list">
-        <div style="padding:20px;text-align:center;color:var(--m);font-size:13px;">اختر جهة تدريب</div>
+    <div class="mbd" style="padding:0;display:flex;flex-direction:column;max-height:80vh;">
+      <!-- Companies list (vertical cards) -->
+      <div style="padding:16px;border-bottom:1px solid var(--b);background:#F9F7FF;">
+        <div style="font-size:13px;font-weight:700;color:var(--m);margin-bottom:10px;">جهات التدريب</div>
+        <div id="comp-list" style="display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;"></div>
       </div>
-      <!-- Students list -->
-      <div style="flex:1;overflow-y:auto;padding:16px;" id="comp-stu-list">
-        <div style="text-align:center;color:var(--m);font-size:13px;padding:20px;">اختر مشرفاً ميدانياً</div>
+      <!-- Field supervisors (vertical) -->
+      <div style="padding:16px;border-bottom:1px solid var(--b);background:#fff;">
+        <div style="font-size:13px;font-weight:700;color:var(--m);margin-bottom:10px;">المشرفون في الجهة</div>
+        <div id="comp-fsup-list" style="display:flex;flex-direction:column;gap:8px;max-height:160px;overflow-y:auto;">
+          <div style="text-align:center;color:var(--m);font-size:13px;padding:10px;">اختر جهة تدريب أولاً</div>
+        </div>
+      </div>
+      <!-- Students -->
+      <div style="padding:16px;flex:1;overflow-y:auto;">
+        <div style="font-size:13px;font-weight:700;color:var(--m);margin-bottom:10px;">الطلاب تحت إشراف المشرف</div>
+        <div id="comp-stu-list">
+          <div style="text-align:center;color:var(--m);font-size:13px;padding:10px;">اختر مشرفاً أولاً</div>
+        </div>
       </div>
     </div>
   </div>
@@ -472,6 +486,8 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     </div>
   </div>
   <div class="db">
+    <!-- Supervisor & Advisor info card -->
+    <div id="stu-info-card" class="card" style="margin-bottom:20px;"></div>
     <div id="stu-final-bar" class="fb">
       <div class="fbi"><div class="fbic">📋</div>
         <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي لمشرف التدريب</p></div>
@@ -535,7 +551,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div id="adv-dc"></div>
     </div>
     <div class="card">
-      <div class="ch"><div class="ct">التقارير النهائية 📋</div></div>
+      <div class="ch"><div class="ct">التقارير النهائية للطلاب 📋</div></div>
       <div id="adv-fins"></div>
     </div>
   </div>
@@ -561,10 +577,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div class="ch"><div class="ct">المرشدون الأكاديميون</div><button class="tb" onclick="togAdvPan()">−</button></div>
       <div id="adv-cl"></div>
     </div>
-    <div class="fb">
-      <div class="fbi"><div class="fbic">📋</div><div class="fbt"><h3>التقييم النهائي</h3><p>راجع التقارير النهائية وارفع تقييمك</p></div></div>
-      <button class="fbb" onclick="openSupFins()">عرض التقارير النهائية</button>
-    </div>
+
     <div class="card">
       <div class="ch"><div class="ct">المتدربون</div>
         <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:13px;color:var(--m);" id="sup-sl"></span><button class="tb" id="sup-exp" onclick="togSup()">+</button></div>
@@ -576,7 +589,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div id="sup-rct"></div>
     </div>
     <div id="sup-fp" class="card" style="display:none;">
-      <div class="ch"><div class="ct">التقارير النهائية المقدمة</div><button class="tb" onclick="document.getElementById('sup-fp').style.display='none'">−</button></div>
+      <div class="ch"><div class="ct">📋 تقييم الطلاب</div><button class="tb" onclick="document.getElementById('sup-fp').style.display='none'">−</button></div>
       <div id="sup-fc"></div>
     </div>
   </div>
@@ -707,6 +720,11 @@ function buildStu(){
   if(!CU){show('sr');return;}
   setEl('st-nm',CU.name||'الطالب');setEl('st-av',(CU.name||'ط')[0]);
   if(!window.FB?.ready)return;
+  // Load advisor and supervisor info
+  if(CU.advisorId) window.FB.watchUser(CU.advisorId,snap=>{if(snap.exists()){const a=snap.data();const idx=_allAdvisors.findIndex(x=>x.id===CU.advisorId);if(idx>=0)_allAdvisors[idx]={id:CU.advisorId,...a};else _allAdvisors.push({id:CU.advisorId,...a});renderStuInfoCard();}});
+  const supId=CU.supervisorId||CU.supervisorId2;
+  if(supId) window.FB.watchUser(supId,snap=>{if(snap.exists()){const s=snap.data();const idx=_allSupervisors.findIndex(x=>x.id===supId);if(idx>=0)_allSupervisors[idx]={id:supId,...s};else _allSupervisors.push({id:supId,...s});_allFieldSups=[..._allSupervisors];renderStuInfoCard();}});
+  setTimeout(renderStuInfoCard,300);
   _unsub.push(window.FB.watchReports(CU.id,snap=>{
     const r=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.weekNum||0)-(b.weekNum||0));
     renderStuReps(r);
@@ -761,15 +779,15 @@ function renderStuReps(reps){
 }
 
 function updStuFinal(data){
-  const lbl={none:'لم يُرسَل بعد',sent:'بانتظار مشرف التدريب',supervisor_approved:'بانتظار المرشد الأكاديمي',supervisor_declined:'مرفوض — أعد الإرسال',advisor_declined:'مرفوض من المرشد — أعد الإرسال',approved:'✅ معتمد نهائياً'};
-  const cls={none:'fs0',sent:'fs1',supervisor_approved:'fs1',supervisor_declined:'fs4',advisor_declined:'fs4',approved:'fs3'};
+  const lbl={none:'لم يُرسَل بعد',pending_advisor:'بانتظار المرشد الأكاديمي',supervisor_declined:'مرفوض من المرشد — أعد الإرسال',advisor_declined:'مرفوض من المرشد — أعد الإرسال',approved:'✅ معتمد نهائياً'};
+  const cls={none:'fs0',pending_advisor:'fs1',supervisor_declined:'fs4',advisor_declined:'fs4',approved:'fs3'};
   const s=data?.status||'none';
   const el=document.getElementById('st-fs');
   if(el){el.textContent=lbl[s]||'—';el.className='fsb '+(cls[s]||'fs0');}
   const btn=document.getElementById('stu-fin-btn');
   const desc=document.getElementById('stu-fin-desc');
   // Block re-submit if under review
-  const underReview=s==='sent'||s==='supervisor_approved';
+  const underReview=s==='pending_advisor';
   const fullyApproved=s==='approved';
   if(btn){
     btn.disabled=underReview||fullyApproved;
@@ -887,7 +905,7 @@ async function submitStuFinal(){
       supervisorId:CU.supervisorId||'',
       title,abstract:abs,file:fileData,
       file2:file2||null,file3:file3||null,
-      status:'sent',declineComment:'',
+      status:'pending_advisor',declineComment:'',
       submittedAt:new Date().toISOString()
     });
   }
@@ -912,8 +930,8 @@ function buildAdv(){
     _allFieldSups=snap.docs.map(d=>({id:d.id,...d.data()}));
   }));
   _unsub.push(window.FB.watchFinals(snap=>{
-    const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.status==='supervisor_approved'&&f.advisorId===CU.id);
-    const approved=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.status==='approved'&&f.advisorId===CU.id);
+    const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.status==='pending_advisor'&&f.advisorId===CU.id);
+    const approved=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>(f.status==='approved'||f.status==='supervisor_declined')&&f.advisorId===CU.id);
     renderAdvFinals([...fins,...approved]);
     // Show notification for pending
     const notifArea=document.getElementById('adv-notif-area');
@@ -1046,7 +1064,7 @@ function renderAdvFinals(fins){
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:${f.status==='supervisor_approved'?'14':'0'}px;">
         <div class="sav">${(f.studentName||'?')[0]}</div>
         <div style="flex:1;"><div style="font-weight:700;">${f.studentName||'—'}</div><div style="font-size:12px;color:var(--m);">${f.title||'—'}</div></div>
-        ${f.status==='supervisor_approved'?`<span class="bx bp">بانتظار موافقتك</span>`:`<span class="bx bd">✅ معتمد</span>`}
+        ${f.status==='pending_advisor'?`<span class="bx bp">بانتظار موافقتك</span>`:`<span class="bx bd">✅ معتمد</span>`}
         <button class="btn b-v b-sm" data-fv="${f.id}">عرض التفاصيل</button>
         ${f.file?.name?`<button class="btn b-s b-sm" onclick="downloadFinalFile('${f.id}')">⬇ تحميل الملف</button>`:''}
       </div>
@@ -1129,13 +1147,15 @@ function buildSup(){
     setEl('sup-tot',_supStu.length);setEl('sup-sl',`${_supStu.length} طالب`);
     renderSupList();
   }));
-  // Watch finals for advisor_declined notifications
-  _unsub.push(window.FB.watchFinals(snap=>{
-    const declined=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.status==='advisor_declined');
+  // Watch pending evals on supervisor's user doc
+  _unsub.push(window.FB.watchUser(CU.id,snap=>{
+    if(!snap.exists())return;
+    const data=snap.data();
+    const pending=data.pendingEvals||[];
     const notifArea=document.getElementById('sup-notif-area');
-    if(declined.length&&notifArea){
-      notifArea.innerHTML=`<div class="notif-ban"><div class="ni">🔔</div><div class="nt">تنبيه: رفض المرشد الأكاديمي ${declined.length} تقرير نهائي — ${declined.map(f=>f.studentName||'—').join('، ')}</div></div>`;
-    } else if(notifArea)notifArea.innerHTML='';
+    if(pending.length&&notifArea){
+      notifArea.innerHTML='<div class="notif-ban"><div class="ni">📋</div><div class="nt">طُلب منك تقييم '+pending.length+' طالب — <button class="btn b-p b-sm" style="margin-right:8px;" onclick="openSupFins()">عرض التقييمات</button></div></div>';
+    } else if(notifArea) notifArea.innerHTML='';
   }));
   loadAdvForSup();
 }
@@ -1244,92 +1264,26 @@ function togAdvPan(){_advPanOpen=!_advPanOpen;document.getElementById('adv-pan')
 function openSupFins(){
   const panel=document.getElementById('sup-fp');panel.style.display='block';
   if(!window.FB?.ready)return;
-  _unsub.push(window.FB.watchFinals(snap=>{
-    const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>['sent','supervisor_approved','supervisor_declined','advisor_declined','approved'].includes(f.status));
-    if(!fins.length){document.getElementById('sup-fc').innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا توجد تقارير نهائية بعد</p>';return;}
-    const slbl={sent:'بانتظار مراجعتك',supervisor_approved:'تمت الإحالة للمرشد',supervisor_declined:'مرفوض — عاد للطالب',advisor_declined:'رفضه المرشد — عاد للطالب',approved:'معتمد نهائياً'};
-    document.getElementById('sup-fc').innerHTML=fins.map(f=>`
-      <div style="padding:16px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
-          <div class="sav">${(f.studentName||'?')[0]}</div>
-          <div style="flex:1;"><div style="font-weight:700;">${f.studentName||'—'}</div><div style="font-size:12px;color:var(--m);">${f.title||'—'}</div></div>
-          <span class="bx ${f.status==='approved'?'bd':f.status==='sent'?'bp':'ba'}">${slbl[f.status]||f.status}</span>
-          <button class="btn b-v b-sm" data-sfv="${f.id}">عرض</button>
-          ${f.file?.name?`<button class="btn b-s b-sm" onclick="downloadFinalFile('${f.id}')">⬇ الملف</button>`:''}
-        </div>
-        <div style="font-size:13px;padding:10px;background:#fff;border-radius:8px;margin-bottom:${f.status==='sent'?'10':'0'}px;"><strong>المستخلص:</strong> ${f.abstract||'—'}</div>
-        ${f.status==='sent'?`
-          <div style="border-top:1px solid var(--b);padding-top:14px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--p);">📋 تقييم التقرير النهائي</div>
-            <div style="font-size:12px;color:var(--m);margin-bottom:10px;">التقييم: 1 = ضعيف &nbsp;|&nbsp; 5 = ممتاز</div>
-            <div class="eg">
-              <div class="ei"><label>الأداء العام</label>
-                <select id="sr-o-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
-              </div>
-              <div class="ei"><label>الالتزام والانضباط</label>
-                <select id="sr-a-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
-              </div>
-              <div class="ei"><label>جودة العمل</label>
-                <select id="sr-q-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
-              </div>
-              <div class="ei"><label>السلوك المهني</label>
-                <select id="sr-b-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
-              </div>
-              <div class="ei"><label>جودة التقرير المكتوب</label>
-                <select id="sr-w-${f.id}"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
-              </div>
-              <div class="ei"><label>التوصية النهائية</label>
-                <select id="sr-rec-${f.id}"><option value="ناجح">✅ ناجح</option><option value="راسب">❌ راسب</option></select>
-              </div>
-            </div>
-            <div class="fl">ملاحظات عامة للمرشد الأكاديمي</div>
-            <textarea class="fi" id="sr-c-${f.id}" rows="2" placeholder="ملاحظات عامة..."></textarea>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-              <button class="btn b-a b-sm" data-sup-appr="${f.id}">حفظ التقييم وإحالة للمرشد ✅</button>
-              <button class="btn b-r b-sm" data-sup-decl="${f.id}">رفض وإعادة للطالب ❌</button>
-            </div>
-            <div id="sup-fdecl-${f.id}" style="display:none;margin-top:8px;">
-              <textarea class="fi" id="sup-fc-${f.id}" rows="2" placeholder="سبب الرفض للطالب..."></textarea>
-              <button class="btn b-r b-sm" data-sup-cf="${f.id}">تأكيد الرفض</button>
-            </div>
-          </div>`
-        :f.status==='advisor_declined'?`<div style="background:#FFF8E1;border-radius:8px;padding:10px;font-size:13px;color:#856404;">⚠️ رفضه المرشد: ${f.declineComment||'—'}</div>`:
-         f.status==='supervisor_approved'?`<div style="background:#D1ECF1;border-radius:8px;padding:10px;font-size:13px;color:#0C5460;">✅ أُحيل للمرشد بانتظار موافقته</div>`:
-         f.status==='approved'?`<div style="background:#D4EDDA;border-radius:8px;padding:10px;font-size:13px;color:#1B6B35;">✅ معتمد من المرشد الأكاديمي</div>`:''}
-      </div>`).join('');
-    document.querySelectorAll('[data-sfv]').forEach(b=>b.addEventListener('click',()=>viewFinalMod(b.dataset.sfv)));
-    document.querySelectorAll('[data-sup-appr]').forEach(b=>b.addEventListener('click',async()=>{
-      const fid=b.getAttribute('data-sup-appr');
-      const supEval={
-        overall:parseInt(document.getElementById(`sr-o-${fid}`)?.value||5),
-        commitment:parseInt(document.getElementById(`sr-a-${fid}`)?.value||5),
-        quality:parseInt(document.getElementById(`sr-q-${fid}`)?.value||5),
-        behavior:parseInt(document.getElementById(`sr-b-${fid}`)?.value||5),
-        reportQuality:parseInt(document.getElementById(`sr-w-${fid}`)?.value||5),
-        recommendation:document.getElementById(`sr-rec-${fid}`)?.value||'ناجح',
-        comment:(document.getElementById(`sr-c-${fid}`)?.value||'').trim(),
-        evaluatorName:CU.name,evaluatedAt:new Date().toISOString()
-      };
-      supEval.average=Math.round((supEval.overall+supEval.commitment+supEval.quality+supEval.behavior+supEval.reportQuality)/5*10)/10;
-      await window.FB.updateFinal(fid,{status:'supervisor_approved',supervisorEval:supEval,supervisorApprovedAt:new Date().toISOString()});
-      toast('✅ تم حفظ التقييم وإحالة التقرير للمرشد الأكاديمي');
-    }));
-    document.querySelectorAll('[data-sup-decl]').forEach(b=>b.addEventListener('click',()=>{
-      const fid=b.getAttribute('data-sup-decl');
-      const fd=document.getElementById(`sup-fdecl-${fid}`);
-      if(fd)fd.style.display=fd.style.display==='none'?'block':'none';
-    }));
-    document.querySelectorAll('[data-sup-cf]').forEach(b=>b.addEventListener('click',async()=>{
-      const fid=b.getAttribute('data-sup-cf');
-      const cm=document.getElementById(`sup-fc-${fid}`)?.value.trim();
-      if(!cm){toast('يرجى كتابة سبب الرفض');return;}
-      await window.FB.updateFinal(fid,{status:'supervisor_declined',declineComment:cm,supervisorDeclinedAt:new Date().toISOString()});
-      toast('❌ تم الرفض — أُعيد للطالب مع التعليق');
-    }));
-  }));
+  // Load pending evals from supervisor's user doc
+  window.FB.watchUser(CU.id,snap=>{
+    if(!snap.exists())return;
+    const pending=snap.data().pendingEvals||[];
+    const el=document.getElementById('sup-fc');
+    if(!pending.length){
+      el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا توجد طلبات تقييم حالياً</p>';
+      return;
+    }
+    el.innerHTML=pending.map(p=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      +'<div class="sav">'+(p.studentName||'?')[0]+'</div>'
+      +'<div style="flex:1;"><div style="font-weight:700;">'+p.studentName+'</div>'
+      +'<div style="font-size:12px;color:var(--m);">طلب التقييم: '+p.requestedBy+' — '+(p.requestedAt?new Date(p.requestedAt).toLocaleDateString('ar-SA'):'')+'</div></div>'
+      +'<button class="btn b-p b-sm" data-peid="'+p.studentId+'" data-pesn="'+p.studentName+'">📋 تقييم الآن</button>'
+      +'</div>'
+    ).join('');
+    el.querySelectorAll('[data-peid]').forEach(b=>b.addEventListener('click',()=>openFSupEval(b.dataset.peid,b.dataset.pesn)));
+  });
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-
 function viewFinalMod(fid){
   document.getElementById('mr-ti').textContent='التقرير النهائي';
   document.getElementById('mr-bd').innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">جارٍ التحميل...</p>';
@@ -1385,6 +1339,9 @@ async function openUsrMgmt(){
     const supSel=document.getElementById('u-sup');
     if(supSel)supSel.innerHTML='<option value="">— اختر مشرف التدريب —</option>'+_allSupervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
     _allFieldSups=allU.filter(u=>u.role==='supervisor');
+    // Populate company datalist
+    const dl=document.getElementById('comp-datalist');
+    if(dl){const cos=[...new Set(_allFieldSups.map(f=>f.company).filter(Boolean))];dl.innerHTML=cos.map(co=>'<option value="'+co+'">').join('');}
     const fsupSel=document.getElementById('u-fsup');
     if(fsupSel)fsupSel.innerHTML='<option value="">— اختر المشرف الميداني —</option>'+_allFieldSups.map(f=>`<option value="${f.id}">${f.name} (${f.company||''})</option>`).join('');
   }
@@ -1400,7 +1357,8 @@ function swTab(t){
 function toggleSF(){
   const rl=document.getElementById('u-rl').value;
   document.getElementById('sf').style.display=rl==='student'?'block':'none';
-  document.getElementById('sf-fs').style.display=rl==='supervisor'?'block':'none';
+  const sffs=document.getElementById('sf-fs');
+  if(sffs)sffs.style.display=rl==='supervisor'?'block':'none';
 }
 function filterU(el,role){document.querySelectorAll('.ft').forEach(b=>b.classList.toggle('active',b.dataset.r===role));renderUsrList(role);}
 
@@ -1570,42 +1528,84 @@ async function saveEditUser(uid,isS){
 
 
 /* ══════════ CONSTANTS ══════════ */
-const EVAL_CRITERIA=[
-  'توقيت التدريب كان مناسب',
-  'مدة التدريب كانت تتناسب مع إمكانيات الطالب',
-  'الموقع الذي تم فيه التدريب كان مناسباً لإمكانيات المتدرب',
-  'الإشراف من قبل المشرف الأكاديمي كان كافياً',
-  'عملية التواصل مع المشرف الأكاديمي كانت مناسبة',
-  'النماذج التي تم استخدامها للتقييم كانت مناسبة',
-  'هل حقق برنامج التدريب الميداني بشكل عام الأهداف المتوقعة'
+/* Student eval criteria from PDF (10 items, scores 2/4/6/8/10) */
+const STU_EVAL_ITEMS=[
+  'المحافظة على أوقات الدوام',
+  'فهم الهيكل التنظيمي لجهة التدريب',
+  'الالتزام بإجراءات وأنظمة العمل',
+  'القدرة على استيعاب أعمال التخصص الذي ينتمي إليه الطالب',
+  'إنجاز ما يكلف به المتدرب بشكل مناسب',
+  'المرونة والقدرة على التكييف',
+  'التعامل مع الزملاء والمدربين',
+  'القدرة على استخدام مهارات تقنية المعلومات',
+  'المبادرة والقدرة على الابتكار والإبداع',
+  'القدرة على الاتصال الشفهي والكتابي'
 ];
-function evalFormHTML(fid,readonly,savedData){
-  const opts=['أوافق','صحيح لحد ما','لا أوافق'];
-  let rows=EVAL_CRITERIA.map((cr,i)=>{
-    let cells=opts.map(o=>{
-      const chk=savedData&&savedData[i]&&savedData[i].rating===o?'checked':'';
-      return '<td style="text-align:center;">'+(readonly
-        ?'<span style="color:'+(chk?'var(--p)':'#ccc')+';">'+( chk?'✔':'—')+'</span>'
-        :'<input type="radio" name="ec-'+fid+'-'+i+'" value="'+o+'" '+chk+' style="cursor:pointer;">'
+const STU_GRADES=[{l:'ممتاز',v:10},{l:'جيد جداً',v:8},{l:'جيد',v:6},{l:'مقبول',v:4},{l:'ضعيف',v:2}];
+
+function stuEvalFormHTML(fid,readonly,saved){
+  const hdr='<div style="background:#2C3E50;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px;">'
+    +'<div style="font-size:14px;font-weight:800;text-align:center;">استمارة تقييم متدرب من قبل جهة التدريب</div>'
+    +'<div style="font-size:11px;text-align:center;opacity:.7;margin-top:4px;">كلية إدارة الأعمال بينبع — جامعة طيبة</div></div>';
+  // Header info fields
+  const info=readonly
+    ?('<div class="rig" style="margin-bottom:14px;">'
+      +'<div class="rit"><div class="ril">اسم المتدرب</div><div class="riv">'+(saved?.studentName||'—')+'</div></div>'
+      +'<div class="rit"><div class="ril">جهة التدريب</div><div class="riv">'+(saved?.company||'—')+'</div></div>'
+      +'<div class="rit"><div class="ril">المسؤول المباشر</div><div class="riv">'+(saved?.supervisor||'—')+'</div></div>'
+      +'<div class="rit"><div class="ril">الفترة</div><div class="riv">'+(saved?.dateFrom||'—')+' إلى '+(saved?.dateTo||'—')+'</div></div>'
+      +'</div>')
+    :('<div class="fg2" style="margin-bottom:14px;">'
+      +'<div><div class="fl">اسم المسؤول المباشر</div><input class="fi" id="se-sup-'+fid+'" type="text" placeholder="اسم المسؤول..." value="'+(saved?.supervisor||'')+'"></div>'
+      +'<div><div class="fl">الوظيفة</div><input class="fi" id="se-job-'+fid+'" type="text" placeholder="مدير..." value="'+(saved?.jobTitle||'')+'"></div>'
+      +'<div><div class="fl">التاريخ من</div><input class="fi" id="se-df-'+fid+'" type="date" value="'+(saved?.dateFrom||'')+'"></div>'
+      +'<div><div class="fl">التاريخ إلى</div><input class="fi" id="se-dt-'+fid+'" type="date" value="'+(saved?.dateTo||'')+'"></div>'
+      +'</div>');
+  // Table
+  let rows='';
+  STU_EVAL_ITEMS.forEach((item,i)=>{
+    rows+='<tr><td style="padding:10px 14px;font-size:13px;font-weight:600;">'+(i+1)+'. '+item+'</td>';
+    STU_GRADES.forEach(g=>{
+      const chk=saved?.scores&&saved.scores[i]===g.v;
+      rows+='<td style="text-align:center;padding:6px;">'+(readonly
+        ?'<span style="font-size:18px;color:'+(chk?'var(--p)':'#ddd')+'">'+(chk?'✔':'○')+'</span>'
+        :'<label style="cursor:pointer;display:block;"><input type="radio" name="se-'+fid+'-'+i+'" value="'+g.v+'" '+(chk?'checked':'')+'></label>'
       )+'</td>';
-    }).join('');
-    let note=readonly?(savedData&&savedData[i]?.note||''):'<input class="fi" style="margin:0;padding:4px 8px;font-size:12px;" id="en-'+fid+'-'+i+'" placeholder="ملاحظة" value="'+(savedData&&savedData[i]?.note||'')+'">';
-    return '<tr><td style="font-size:13px;padding:10px 14px;">'+cr+'</td>'+cells+'<td style="padding:6px;">'+note+'</td></tr>';
-  }).join('');
-  return '<div class="tw"><table>'
-    +'<thead><tr><th>العنصر</th><th>أوافق</th><th>صحيح لحد ما</th><th>لا أوافق</th><th>ملاحظات</th></tr></thead>'
-    +'<tbody>'+rows+'</tbody></table></div>'
-    +'<div class="fl" style="margin-top:14px;">ملاحظات عامة</div>'
-    +'<textarea class="fi" id="eg-'+fid+'" rows="2" placeholder="ملاحظات عامة...">'+((readonly&&savedData?.generalNote)||'')+'</textarea>'
-    +(readonly?''
-      :('<div class="fl">اقتراحات للتحسين</div><textarea class="fi" id="es-'+fid+'" rows="2" placeholder="اقتراحاتك..."></textarea>'));
-}
-function collectEvalData(fid){
-  const data=EVAL_CRITERIA.map((_,i)=>{
-    const sel=document.querySelector('input[name="ec-'+fid+'-'+i+'"]:checked');
-    return{rating:sel?sel.value:'',note:document.getElementById('en-'+fid+'-'+i)?.value.trim()||''};
+    });
+    rows+='</tr>';
   });
-  return{criteria:data,generalNote:document.getElementById('eg-'+fid)?.value.trim()||'',suggestions:document.getElementById('es-'+fid)?.value.trim()||''};
+  const scores=saved?.scores||[];
+  const total=scores.reduce((s,v)=>s+(v||0),0);
+  rows+='<tr style="background:#F7F5FD;font-weight:800;"><td style="padding:10px 14px;">المجموع</td>'
+    +STU_GRADES.map(()=>'<td></td>').join('')+'</tr>';
+  rows+='<tr style="background:#EDE8F8;font-weight:800;"><td style="padding:10px 14px;">المجموع النهائي</td>'
+    +'<td colspan="5" style="text-align:center;font-size:18px;color:var(--p);">'+(readonly&&total?total+' / 100':'—')+'</td></tr>';
+  const table='<div style="overflow-x:auto;border-radius:12px;border:1px solid var(--b);">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    +'<thead><tr style="background:#2C3E50;color:#fff;">'
+    +'<th style="padding:10px 14px;text-align:right;">عناصر التقييم</th>'
+    +STU_GRADES.map(g=>'<th style="padding:10px 8px;min-width:60px;text-align:center;">'+g.l+'<br><span style="font-size:11px;opacity:.8;">'+g.v+'</span></th>').join('')
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  const absence=readonly
+    ?('<div style="margin-top:14px;padding:12px;background:#FFF8E1;border-radius:10px;font-size:13px;"><strong>الغياب:</strong> '+(saved?.absenceDays||0)+' يوم</div>')
+    :('<div class="fl" style="margin-top:14px;">عدد أيام الغياب</div><input class="fi" id="se-abs-'+fid+'" type="number" min="0" value="'+(saved?.absenceDays||0)+'" style="max-width:150px;">');
+  return hdr+info+table+absence;
+}
+
+function collectStuEval(fid){
+  const scores=STU_EVAL_ITEMS.map((_,i)=>{
+    const sel=document.querySelector('input[name="se-'+fid+'-'+i+'"]:checked');
+    return sel?parseInt(sel.value):null;
+  });
+  return{
+    supervisor:document.getElementById('se-sup-'+fid)?.value.trim()||'',
+    jobTitle:document.getElementById('se-job-'+fid)?.value.trim()||'',
+    dateFrom:document.getElementById('se-df-'+fid)?.value||'',
+    dateTo:document.getElementById('se-dt-'+fid)?.value||'',
+    absenceDays:parseInt(document.getElementById('se-abs-'+fid)?.value||0),
+    scores,
+    total:scores.filter(Boolean).reduce((s,v)=>s+v,0)
+  };
 }
 
 /* ══════════ FIELD SUPERVISOR DASHBOARD ══════════ */
@@ -1672,151 +1672,29 @@ async function viewStuReports(sid,sname){
     u();
   });
 }
-function openFSupEval(fid,sname){
-  document.getElementById('feval-bd').innerHTML='<div style="background:#F0EBFB;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;font-weight:700;">التقييم لـ: '+sname+'</div>'
-    +evalFormHTML(fid,false,null);
-  document.getElementById('feval-ft').innerHTML='<button class="btn b-p" id="feval-submit-btn">حفظ التقييم 📋</button>'
-    +'<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(\'m-feval\')">إلغاء</button>';
-  document.getElementById('feval-submit-btn').onclick=()=>submitFSupEval(fid,sname);
+function openFSupEval(sid,sname){
+  const s=_supStu.find(x=>x.id===sid)||{id:sid,name:sname};
+  document.getElementById('feval-bd').innerHTML=stuEvalFormHTML(sid,false,{studentName:sname,company:s.company||''});
+  document.getElementById('feval-ft').innerHTML='<button class="btn b-p" id="feval-submit-btn">حفظ التقييم ✅ (المجموع/100)</button>'
+    +'<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-feval&apos;)">إلغاء</button>';
+  document.getElementById('feval-submit-btn').onclick=()=>submitFSupEval(sid,sname,s);
   openM('m-feval');
 }
-async function submitFSupEval(fid,sname){
-  const data=collectEvalData(fid);
-  const hasAll=data.criteria.every(c=>c.rating);
-  if(!hasAll){toast('يرجى تقييم جميع العناصر');return;}
+async function submitFSupEval(sid,sname,s){
+  const data=collectStuEval(sid);
+  const hasAll=data.scores.every(v=>v!==null);
+  if(!hasAll){toast('يرجى تقييم جميع العناصر العشرة');return;}
+  data.studentName=sname;data.company=s?.company||CU.company||'';
+  data.evaluatorName=CU.name;data.evaluatedAt=new Date().toISOString();
   if(!window.FB?.ready)return;
-  await window.FB.updateFinal(fid,{supervisorFieldEval:{...data,evaluatorName:CU.name,evaluatedAt:new Date().toISOString()}});
-  await window.FB.setFieldEval(fid+'_'+CU.id,{supervisorId:CU.id,finalReportId:fid,studentName:sname,...data,createdAt:new Date().toISOString()});
+  await window.FB.setFieldEval('eval_'+sid+'_'+CU.id,{supervisorId:CU.id,studentId:sid,studentName:sname,...data});
+  await window.FB.updateUser(sid,{supervisorEval:data});
+  // Remove from pendingEvals
+  const curPending=(await window.FB.getUser(CU.id)).data()?.pendingEvals||[];
+  await window.FB.updateUser(CU.id,{pendingEvals:curPending.filter(p=>p.studentId!==sid)});
   closeM('m-feval');
-  toast('✅ تم حفظ تقييم استمارة التدريب الميداني');
+  toast('✅ تم حفظ تقييم '+sname+' — المجموع: '+data.total+'/100');
 }
-
-/* ══════════ LAST PERIODIC REPORT EVAL FORM ══════════ */
-// The last periodic report for a student includes the training eval form
-// This is handled in openStuRep — if it's the last report (highest weekNum)
-function isLastReport(r,allReps){
-  const max=Math.max(...allReps.map(x=>x.weekNum||0));
-  return r.weekNum===max;
-}
-
-/* ══════════ INQUIRY BOX ══════════ */
-let _inqAllStudents=[];
-async function openInquiry(){
-  _inqAllStudents=_advStu;
-  openM('m-inq');
-}
-async function runInquiry(){
-  const filter=document.getElementById('inq-filter').value;
-  const el=document.getElementById('inq-results');
-  el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">جارٍ البحث...</p>';
-  if(!window.FB?.ready){el.innerHTML='<p style="color:red;">Firebase غير متصل</p>';return;}
-  // Load reports for all students under this advisor
-  const results=[];
-  await Promise.all(_advStu.map(async s=>{
-    const snap=await new Promise(res=>{const u=window.FB.watchReports(s.id,sn=>{res(sn);u();});});
-    const reps=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.status!=='معلق');
-    if(filter==='none'&&reps.length===0){results.push({s,reps});}
-    else if(filter==='1'&&reps.length===1){results.push({s,reps});}
-    else if(filter==='2'&&reps.length===2){results.push({s,reps});}
-    else if(filter==='3'&&reps.length===3){results.push({s,reps});}
-    else if(filter==='1-3'&&reps.length>=1&&reps.length<=3){results.push({s,reps});}
-  }));
-  if(!results.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا يوجد طلاب يطابقون هذا المعيار</p>';return;}
-  el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 12px;">وُجد '+results.length+' طالب</div>'
-    +results.map(({s,reps})=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;">'
-      +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:'+( reps.length?'10':'0')+'px;">'
-      +'<div class="sav">'+(s.name||'?')[0]+'</div>'
-      +'<div style="flex:1;"><div style="font-weight:700;">'+s.name+'</div><div style="font-size:12px;color:var(--m);">'+s.email+' | تقارير مرفوعة: '+reps.length+'</div></div>'
-      +'</div>'
-      +(reps.length?'<div class="tw"><table><thead><tr><th>التقرير</th><th>الحالة</th><th>التقييم</th><th>إجراء</th></tr></thead><tbody>'
-        +reps.map(r=>'<tr><td>'+r.reportTitle+'</td><td>'+bdg(r.status)+'</td><td>'+strs(r.rating||null)+'</td>'
-          +'<td>'+(r.supervisorStatus==='معتمد'&&!r.rating
-            ?'<button class="btn b-s b-sm" data-inq-rid="'+r.id+'" data-inq-sid="'+s.id+'">تقييم ⭐</button>'
-            :'<span style="font-size:12px;color:var(--m);">—</span>')+'</td></tr>'
-        ).join('')
-        +'</tbody></table></div>'
-      :'')
-      +'</div>'
-    ).join('');
-  document.querySelectorAll('[data-inq-rid]').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const rid=b.dataset.inqRid,sid=b.dataset.inqSid;
-      const sr=results.find(x=>x.s.id===sid);
-      const r=sr?.reps.find(x=>x.id===rid);
-      if(r)openAdvRate(sr.s,r);
-    });
-  });
-}
-
-/* ══════════ COMPANIES BOX ══════════ */
-let _selCompany=null,_selFSup=null;
-async function openCompanies(){
-  openM('m-comp');
-  if(!window.FB?.ready)return;
-  window.FB.watchFieldSupervisors(snap=>{
-    _allFieldSups=snap.docs.map(d=>({id:d.id,...d.data()}));
-    // Group by company
-    const companies=[...new Set(_allFieldSups.map(fs=>fs.company||'غير محدد'))];
-    const el=document.getElementById('comp-list');
-    el.innerHTML=companies.map(co=>'<div class="ci'+(_selCompany===co?' ca':'')+'" data-co="'+co+'" style="cursor:pointer;">'
-      +'<div class="cn">'+co+'</div>'
-      +'<div class="cr">'+_allFieldSups.filter(f=>f.company===co).length+' مشرف</div>'
-      +'<span style="float:left;font-size:16px;cursor:pointer;" title="موقع الشركة على الخريطة" data-mapco="'+co+'">📍</span>'
-      +'</div>'
-    ).join('');
-    el.querySelectorAll('[data-co]').forEach(el2=>el2.addEventListener('click',()=>selectCompany(el2.dataset.co)));
-    el.querySelectorAll('[data-mapco]').forEach(s2=>s2.addEventListener('click',e=>{e.stopPropagation();openMaps(s2.dataset.mapco,e);}));
-  });
-}
-function openMaps(company,e){
-  e.stopPropagation();
-  const fs=_allFieldSups.find(f=>f.company===company);
-  const lat=fs?.lat,lng=fs?.lng;
-  const url=lat&&lng
-    ?'https://www.google.com/maps?q='+lat+','+lng
-    :'https://www.google.com/maps/search/'+encodeURIComponent(company);
-  window.open(url,'_blank');
-}
-function selectCompany(co){
-  _selCompany=co;_selFSup=null;
-  document.querySelectorAll('#comp-list .ci').forEach(el=>el.classList.toggle('ca',el.dataset.co===co));
-  const fsups=_allFieldSups.filter(f=>f.company===co);
-  const el=document.getElementById('comp-fsup-list');
-  el.innerHTML=fsups.length?fsups.map(f=>'<div class="ci'+(_selFSup===f.id?' ca':'')+'" data-fsid="'+f.id+'">'
-    +'<div class="cn">'+f.name+'</div><div class="cr">'+( f.phone||'')+'</div></div>'
-  ).join(''):'<div style="padding:16px;font-size:13px;color:var(--m);">لا يوجد مشرفون</div>';
-  el.querySelectorAll('[data-fsid]').forEach(el2=>el2.addEventListener('click',()=>selectFSup(el2.dataset.fsid)));
-  document.getElementById('comp-stu-list').innerHTML='<div style="text-align:center;color:var(--m);font-size:13px;padding:20px;">اختر مشرفاً ميدانياً</div>';
-}
-async function selectFSup(fsid){ // fsid here is supervisor UID
-  _selFSup=fsid;
-  document.querySelectorAll('#comp-fsup-list .ci').forEach(el=>el.classList.toggle('ca',el.dataset.fsid===fsid));
-  const el=document.getElementById('comp-stu-list');
-  el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">جارٍ التحميل...</p>';
-  if(!window.FB?.ready)return;
-  const u=window.FB.watchFieldSupStudents(fsid,snap=>{
-    const stus=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(!stus.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب</p>';return;}
-    const fs=_allFieldSups.find(f=>f.id===fsid);
-    el.innerHTML=stus.map(s=>'<div style="display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--b);">'
-      +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
-      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+s.name+'</div><div style="font-size:11px;color:var(--m);">'+( s.dept||'—')+'</div></div>'
-      +'<button class="btn" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;padding:4px 10px;font-size:12px;" '
-      +'data-nfsid="'+fsid+'" data-nsid="'+s.id+'" data-nsn="'+s.name+'" data-nfn="'+( fs?.name||'')+'">⭐ إشعار</button>'
-      +'</div>'
-    ).join('');
-    u();
-    el.querySelectorAll('[data-nfsid]').forEach(b=>b.addEventListener('click',()=>notifyFSup(b.dataset.nfsid,b.dataset.nsid,b.dataset.nsn,b.dataset.nfn)));
-  });
-}
-async function notifyFSup(fsid,sid,sname,fsname){
-  if(!window.FB?.ready)return;
-  await window.FB.addNotif({to:fsid,type:'eval_request',studentId:sid,studentName:sname,fromName:CU.name,msg:'مطلوب منك تقييم الطالب '+sname+' وفق معايير استمارة التقييم الميداني'});
-  toast('✅ تم إرسال إشعار للمشرف الميداني '+fsname+' لتقييم '+sname);
-}
-
-
-
 async function openFSupEvalForm(){
   // Open a modal to select a student then fill the eval form
   document.getElementById('mr-ti').textContent='📋 استمارة تقييم برنامج التدريب الميداني';
@@ -1962,6 +1840,179 @@ async function sendBC(){
   document.getElementById('bc-txt').value='';
   closeM('m-bc');toast(`✅ تم إرسال الرسالة لـ ${_advStu.length} طالب`);
 }
+
+/* ══════════ INQUIRY BOX ══════════ */
+
+function autoFillCompany(val){
+  // Update datalist with existing companies
+  const dl=document.getElementById('comp-datalist');
+  if(!dl)return;
+  const companies=[...new Set(_allFieldSups.map(f=>f.company).filter(Boolean))];
+  dl.innerHTML=companies.map(co=>'<option value="'+co+'">').join('');
+  // If exact match found, auto-fill address and coordinates
+  const existing=_allFieldSups.find(f=>f.company===val);
+  if(existing){
+    const addrEl=document.getElementById('fs-addr');
+    const latEl=document.getElementById('fs-lat');
+    const lngEl=document.getElementById('fs-lng');
+    if(addrEl&&existing.address)addrEl.value=existing.address;
+    if(latEl&&existing.lat)latEl.value=existing.lat;
+    if(lngEl&&existing.lng)lngEl.value=existing.lng;
+  }
+}
+
+async function openInquiry(){ openM('m-inq'); }
+async function runInquiry(){
+  const filter=document.getElementById('inq-filter').value;
+  const el=document.getElementById('inq-results');
+  el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">جارٍ البحث...</p>';
+  if(!window.FB?.ready){el.innerHTML='<p style="color:red;">Firebase غير متصل</p>';return;}
+  const weekNum=filter==='none'?null:parseInt(filter);
+  const results=[];
+  await Promise.all(_advStu.map(async s=>{
+    const snap=await new Promise(res=>{const u=window.FB.watchReports(s.id,sn=>{res(sn);u();});});
+    const allReps=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(filter==='none'){
+      if(allReps.filter(r=>r.status!=='معلق').length===0) results.push({s,rep:null});
+    } else {
+      const rep=allReps.find(r=>r.weekNum===weekNum&&r.status!=='معلق');
+      if(rep) results.push({s,rep});
+    }
+  }));
+  if(!results.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا يوجد طلاب يطابقون هذا المعيار</p>';return;}
+  el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 12px;font-weight:700;">وُجد '+results.length+' طالب</div>'
+    +results.map(({s,rep})=>'<div style="padding:12px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<div class="sav">'+(s.name||'?')[0]+'</div>'
+      +'<div style="flex:1;min-width:120px;"><div style="font-weight:700;font-size:14px;">'+s.name+'</div><div style="font-size:12px;color:var(--m);">'+s.email+'</div></div>'
+      +(rep
+        ?bdg(rep.status)
+          +(rep.supervisorStatus==='معتمد'&&!rep.rating
+            ?'<button class="btn b-s b-sm" data-inq-rid="'+rep.id+'" data-inq-sid="'+s.id+'">تقييم ⭐</button>'
+            :'<button class="btn b-v b-sm" data-inq-rid2="'+rep.id+'" data-inq-sid2="'+s.id+'">عرض 📄</button>')
+        :'<span class="bx bn">لم يرفع</span>')
+      +'</div>'
+    ).join('');
+  document.querySelectorAll('[data-inq-rid]').forEach(b=>{
+    b.addEventListener('click',()=>{const r2=results.find(x=>x.s.id===b.dataset.inqSid);if(r2?.rep)openAdvRate(r2.s,r2.rep);});
+  });
+  document.querySelectorAll('[data-inq-rid2]').forEach(b=>{
+    b.addEventListener('click',()=>{const r2=results.find(x=>x.s.id===b.dataset.inqSid2);if(r2?.rep)openRepView(r2.s,r2.rep);});
+  });
+}
+
+/* ══════════ COMPANIES BOX (vertical layout) ══════════ */
+let _selCompany=null,_selFSup=null;
+async function openCompanies(){
+  openM('m-comp');
+  if(!window.FB?.ready)return;
+  window.FB.watchFieldSupervisors(snap=>{
+    _allFieldSups=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const companies=[...new Set(_allFieldSups.map(fs=>fs.company||'غير محدد'))];
+    const el=document.getElementById('comp-list');
+    el.innerHTML=companies.length?companies.map(co=>'<div class="ci'+(_selCompany===co?' ca':'')+'" data-co="'+co+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;">'
+      +'<div><div class="cn">'+co+'</div><div class="cr">'+_allFieldSups.filter(f=>f.company===co).length+' مشرف</div></div>'
+      +'<span data-mapco="'+co+'" title="خريطة" style="cursor:pointer;font-size:18px;">📍</span></div>'
+      +'</div>'
+    ).join(''):'<div style="padding:16px;font-size:13px;color:var(--m);text-align:center;">لا توجد جهات</div>';
+    el.querySelectorAll('[data-co]').forEach(el2=>el2.addEventListener('click',e=>{if(e.target.dataset.mapco)return;selectCompany(el2.dataset.co);}));
+    el.querySelectorAll('[data-mapco]').forEach(s2=>s2.addEventListener('click',e=>{e.stopPropagation();openMaps(s2.dataset.mapco);}));
+  });
+}
+function openMaps(company){
+  const fs=_allFieldSups.find(f=>f.company===company);
+  const lat=fs?.lat,lng=fs?.lng;
+  const url=lat&&lng?'https://www.google.com/maps?q='+lat+','+lng:'https://www.google.com/maps/search/'+encodeURIComponent(company);
+  window.open(url,'_blank');
+}
+function selectCompany(co){
+  _selCompany=co;_selFSup=null;
+  document.querySelectorAll('#comp-list .ci').forEach(el=>el.classList.toggle('ca',el.dataset.co===co));
+  const fsups=_allFieldSups.filter(f=>f.company===co);
+  const el=document.getElementById('comp-fsup-list');
+  el.innerHTML=fsups.length?fsups.map(f=>'<div class="ci'+(_selFSup===f.id?' ca':'')+'" data-fsid="'+f.id+'">'
+    +'<div class="cn">'+f.name+'</div><div class="cr">'+(f.phone||'')+'</div></div>'
+  ).join(''):'<div style="padding:16px;font-size:13px;color:var(--m);">لا يوجد مشرفون</div>';
+  el.querySelectorAll('[data-fsid]').forEach(el2=>el2.addEventListener('click',()=>selectFSup(el2.dataset.fsid)));
+  document.getElementById('comp-stu-list').innerHTML='<div style="text-align:center;color:var(--m);font-size:13px;padding:20px;">اختر مشرفاً</div>';
+}
+async function selectFSup(fsid){
+  _selFSup=fsid;
+  document.querySelectorAll('#comp-fsup-list .ci').forEach(el=>el.classList.toggle('ca',el.dataset.fsid===fsid));
+  const el=document.getElementById('comp-stu-list');
+  el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">جارٍ التحميل...</p>';
+  if(!window.FB?.ready)return;
+  const u=window.FB.watchFieldSupStudents(fsid,snap=>{
+    const stus=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const fs=_allFieldSups.find(f=>f.id===fsid);
+    if(!stus.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب</p>';return;}
+    el.innerHTML=stus.map(s=>'<div style="display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--b);">'
+      +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+s.name+'</div>'
+      +'<div style="font-size:11px;color:var(--m);">'+(s.dept||'—')+'</div></div>'
+      +'<button class="btn" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;padding:4px 10px;font-size:12px;" '
+      +'data-nfsid="'+fsid+'" data-nsid="'+s.id+'" data-nsn="'+s.name+'" data-nfn="'+(fs?.name||'')+'">⭐ طلب تقييم</button>'
+      +'</div>'
+    ).join('');
+    el.querySelectorAll('[data-nfsid]').forEach(b=>b.addEventListener('click',()=>notifyFSup(b.dataset.nfsid,b.dataset.nsid,b.dataset.nsn,b.dataset.nfn)));
+    u();
+  });
+}
+async function notifyFSup(fsid,sid,sname,fsname){
+  if(!window.FB?.ready)return;
+  await window.FB.addNotif({to:fsid,type:'eval_request',studentId:sid,studentName:sname,fromName:CU.name,
+    msg:'طُلب منك تقييم الطالب: '+sname,requestedAt:new Date().toISOString()});
+  await window.FB.updateUser(fsid,{pendingEvals:window.FB.arrayUnion({studentId:sid,studentName:sname,requestedBy:CU.name,requestedAt:new Date().toISOString()})});
+  toast('✅ تم إرسال طلب تقييم '+sname+' للمشرف '+fsname);
+}
+
+/* ══════════ STUDENT INFO CARD ══════════ */
+function renderStuInfoCard(){
+  const card=document.getElementById('stu-info-card');
+  if(!card||!CU)return;
+  // Advisor info
+  const adv=_allAdvisors.find(a=>a.id===CU.advisorId);
+  // Supervisor info
+  const sup=_allSupervisors.find(s=>s.id===CU.supervisorId)||_allFieldSups.find(s=>s.id===CU.supervisorId2);
+  card.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'
+    +'<div style="background:linear-gradient(135deg,var(--p),var(--pd));border-radius:14px;padding:16px;color:#fff;">'
+    +'<div style="font-size:12px;opacity:.8;margin-bottom:6px;">👨‍🏫 المرشد الأكاديمي</div>'
+    +'<div style="font-size:15px;font-weight:800;">'+(adv?.name||CU.advisorName||'—')+'</div>'
+    +'<div style="font-size:12px;opacity:.85;margin-top:4px;">📧 '+(adv?.email||'—')+'</div>'
+    +'</div>'
+    +'<div style="background:linear-gradient(135deg,var(--pink),#9B2355);border-radius:14px;padding:16px;color:#fff;">'
+    +'<div style="font-size:12px;opacity:.8;margin-bottom:6px;">🏢 مشرف التدريب</div>'
+    +'<div style="font-size:15px;font-weight:800;">'+(sup?.name||CU.supervisorName||CU.supervisorName2||'—')+'</div>'
+    +'<div style="font-size:12px;opacity:.85;margin-top:4px;">📞 '+(sup?.phone||'—')+'</div>'
+    +'</div>'
+    +'</div>';
+}
+
+async function openFSupEvalForm(){
+  document.getElementById('mr-ti').textContent='📋 استمارة تقييم الطلاب';
+  document.getElementById('mr-bd').innerHTML='<p style="text-align:center;color:var(--m);">جارٍ تحميل قائمة المتدربين...</p>';
+  document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+  openM('m-rep');
+  if(!window.FB?.ready)return;
+  const unsubSnap=window.FB.watchAllStudents(sSnap=>{
+    const stus=sSnap.docs.map(d=>({id:d.id,...d.data()}));
+    let html='<div style="margin-bottom:14px;font-size:13px;color:var(--m);">اختر الطالب لتعبئة استمارة التقييم:</div>';
+    stus.forEach(s=>{
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;">'
+        +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
+        +'<div style="flex:1;font-size:13px;font-weight:700;">'+s.name+'</div>'
+        +(s.supervisorEval?'<span class="bx bd">✅ تم التقييم</span>':'')
+        +'<button class="btn b-p b-sm" data-feval-sid="'+s.id+'" data-feval-snm="'+s.name+'">📋 تقييم</button>'
+        +'</div>';
+    });
+    document.getElementById('mr-bd').innerHTML=html;
+    document.querySelectorAll('[data-feval-sid]').forEach(b=>{
+      b.addEventListener('click',()=>{ closeM('m-rep'); openFSupEval(b.dataset.fevalSid,b.dataset.fevalSnm); });
+    });
+    unsubSnap();
+  });
+}
+
 </script>
 </body>
 </html>
