@@ -394,7 +394,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
             <div style="grid-column:1/-1;">
               <div class="fl">رابط خرائط Google</div>
               <div style="display:flex;gap:8px;align-items:flex-start;">
-                <input class="fi" id="fs-maps-url" type="text" placeholder="الصق رابط Google Maps هنا..." style="margin:0;flex:1;" oninput="parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status')">
+                <input class="fi" id="fs-maps-url" type="text" placeholder="الصق رابط Google Maps هنا..." style="margin:0;flex:1;" oninput="clearTimeout(window._mapsT);window._mapsT=setTimeout(()=>parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status'),700)">
                 <button type="button" class="btn b-p b-sm" onclick="parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status')" style="white-space:nowrap;flex-shrink:0;">استخرج 📍</button>
               </div>
               <div id="fs-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);"></div>
@@ -1380,19 +1380,8 @@ function buildSup(){
     _supStu=[..._supStu.filter(s=>!newIds.includes(s.id)),...docs];
     setEl('sup-tot',_supStu.length);setEl('sup-sl',_supStu.length+' طالب');
     renderSupList();checkSupProgEvals();
-    /* Refresh advisor panel so filter reflects updated student list */
-    const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
-    const advs=_allAdvisors.filter(a=>myAdvIds.has(a.id));
-    const cl=document.getElementById('adv-cl');
-    if(cl&&_allAdvisors.length){
-      cl.innerHTML=advs.length?advs.map(a=>`
-        <div class="ar">
-          <div class="arav">${(a.name||'م')[0]}</div>
-          <div style="flex:1;"><div style="font-weight:700;">${a.name}</div><div style="font-size:12px;color:var(--m);">📧 ${a.email}</div></div>
-          <button class="btn b-p b-sm" data-cid="${a.id}" data-cnm="${a.name.replace(/'/g,"&#39;")}">💬 مراسلة</button>
-        </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون مرتبطون بمتدربيك</p>';
-      cl.querySelectorAll('[data-cid]').forEach(b=>b.addEventListener('click',()=>openChatWith(b.dataset.cid,b.dataset.cnm)));
-    }
+    /* If the advisor panel is open, refresh it with the updated student→advisor mapping */
+    if(_advPanOpen)renderAdvCl();
   };
   _supStu=[];
   _unsub.push(window.FB.watchFieldSupStudents(CU.id,snap=>{
@@ -1423,18 +1412,9 @@ function buildSup(){
 async function loadAdvForSup(){
   if(!window.FB?.ready)return;
   _unsub.push(window.FB.watchAllAdvisors(snap=>{
-    const allAdvs=snap.docs.map(d=>({id:d.id,...d.data()}));
-    _allAdvisors=allAdvs;
-    /* Only show advisors that are assigned to at least one of this supervisor's students */
-    const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
-    const advs=allAdvs.filter(a=>myAdvIds.has(a.id));
-    document.getElementById('adv-cl').innerHTML=advs.length?advs.map(a=>`
-      <div class="ar">
-        <div class="arav">${(a.name||'م')[0]}</div>
-        <div style="flex:1;"><div style="font-weight:700;">${a.name}</div><div style="font-size:12px;color:var(--m);">📧 ${a.email}</div></div>
-        <button class="btn b-p b-sm" data-cid="${a.id}" data-cnm="${a.name.replace(/'/g,"&#39;")}">💬 مراسلة</button>
-      </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون مرتبطون بمتدربيك</p>';
-    document.querySelectorAll('#adv-cl [data-cid]').forEach(b=>b.addEventListener('click',()=>openChatWith(b.dataset.cid,b.dataset.cnm)));
+    _allAdvisors=snap.docs.map(d=>({id:d.id,...d.data()}));
+    /* If panel is currently open, refresh it with updated data */
+    if(_advPanOpen)renderAdvCl();
   }));
 }
 
@@ -1557,7 +1537,27 @@ async function supAppr(r,approve,comment){
     toast(approve?`✅ تم اعتماد ${r.reportTitle}`:`❌ تم رفض التقرير مع الملاحظة للطالب`);
   }catch(e){toast('❌ حدث خطأ: '+e.message);}
 }
-function togAdvPan(){_advPanOpen=!_advPanOpen;document.getElementById('adv-pan').style.display=_advPanOpen?'block':'none';document.getElementById('sup-ac').classList.toggle('ac',_advPanOpen);}
+function togAdvPan(){
+  _advPanOpen=!_advPanOpen;
+  document.getElementById('adv-pan').style.display=_advPanOpen?'block':'none';
+  document.getElementById('sup-ac').classList.toggle('ac',_advPanOpen);
+  if(_advPanOpen) renderAdvCl();
+}
+
+function renderAdvCl(){
+  const cl=document.getElementById('adv-cl');
+  if(!cl)return;
+  /* Build advisor list filtered to only those linked to this supervisor's students */
+  const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
+  const advs=_allAdvisors.filter(a=>myAdvIds.has(a.id));
+  cl.innerHTML=advs.length?advs.map(a=>`
+    <div class="ar">
+      <div class="arav">${(a.name||'م')[0]}</div>
+      <div style="flex:1;"><div style="font-weight:700;">${a.name}</div><div style="font-size:12px;color:var(--m);">📧 ${a.email}</div></div>
+      <button class="btn b-p b-sm" data-cid="${a.id}" data-cnm="${a.name.replace(/'/g,"&#39;")}">💬 مراسلة</button>
+    </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون مرتبطون بمتدربيك</p>';
+  cl.querySelectorAll('[data-cid]').forEach(b=>b.addEventListener('click',()=>openChatWith(b.dataset.cid,b.dataset.cnm)));
+}
 
 /* ══════ LAST REPORT: Program Eval form (filled by field supervisor, per PDF) ══════ */
 const LAST_REP_EVAL_ITEMS=[
@@ -2476,36 +2476,74 @@ async function sendBC(){
 
 /* ══════════ INQUIRY BOX ══════════ */
 
-/* ── Google Maps URL parser ──
-   Handles all common Google Maps URL formats:
-   - https://maps.google.com/?q=24.123,46.456
-   - https://www.google.com/maps/@24.123,46.456,15z
-   - https://www.google.com/maps/place/.../@24.123,46.456,17z
-   - https://www.google.com/maps/search/?api=1&query=24.123%2C46.456
-   - https://goo.gl/maps/... (shortened — cannot resolve without server redirect)
+/* ── Google Maps shared location URL resolver ──
+   Handles the "Share" button link format: https://maps.app.goo.gl/XXXX
+   Uses allorigins.win as a CORS proxy to follow the redirect and parse coordinates.
+   Also still works for direct coordinate URLs as a fallback.
 */
-function parseMapsUrl(urlInputId,latHiddenId,lngHiddenId,statusId){
+async function parseMapsUrl(urlInputId,latHiddenId,lngHiddenId,statusId){
   const raw=(document.getElementById(urlInputId)?.value||'').trim();
   const status=document.getElementById(statusId);
   if(!raw){if(status)status.textContent='';return;}
-  let lat=null,lng=null;
-  /* Pattern 1: @lat,lng,zoom */
-  let m=raw.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-  if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}
-  /* Pattern 2: ?q=lat,lng or &q=lat,lng */
-  if(!lat){m=raw.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
-  /* Pattern 3: query=lat,lng (possibly URL-encoded comma %2C) */
-  if(!lat){m=raw.match(/query=(-?\d+\.?\d*)(?:,|%2C)(-?\d+\.?\d*)/i);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
-  /* Pattern 4: /place/.../lat,lng (rare) */
-  if(!lat){m=raw.match(/\/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
-  if(lat&&lng&&!isNaN(lat)&&!isNaN(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){
+  if(status){status.style.color='var(--m)';status.textContent='⏳ جارٍ معالجة الرابط...';}
+
+  const setCoords=(lat,lng)=>{
     document.getElementById(latHiddenId).value=lat;
     document.getElementById(lngHiddenId).value=lng;
     if(status){status.style.color='#1B6B35';status.textContent='✅ تم استخراج الإحداثيات: '+lat.toFixed(5)+', '+lng.toFixed(5);}
-  } else {
+  };
+  const setError=(msg)=>{
     document.getElementById(latHiddenId).value='';
     document.getElementById(lngHiddenId).value='';
-    if(status){status.style.color='#A32D2D';status.textContent='❌ لم يتم التعرف على الإحداثيات — تأكد من نسخ الرابط الكامل من شريط العنوان';}
+    if(status){status.style.color='#A32D2D';status.textContent=msg;}
+  };
+
+  /* First try to parse coordinates directly from the URL (non-shortened URLs) */
+  const tryParseDirect=(url)=>{
+    let m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
+    m=url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
+    m=url.match(/query=(-?\d+\.?\d*)(?:,|%2C)(-?\d+\.?\d*)/i);
+    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
+    return null;
+  };
+
+  const direct=tryParseDirect(raw);
+  if(direct&&Math.abs(direct.lat)<=90&&Math.abs(direct.lng)<=180){setCoords(direct.lat,direct.lng);return;}
+
+  /* Shortened URL (maps.app.goo.gl or goo.gl) — resolve via CORS proxy */
+  try{
+    /* allorigins returns JSON: { contents: "html...", status: { http_code, url } }
+       When it follows a redirect, the final HTML is returned.
+       Google Maps HTML contains the coordinates in several places we can parse. */
+    const proxyUrl='https://api.allorigins.win/get?url='+encodeURIComponent(raw);
+    const resp=await fetch(proxyUrl,{signal:AbortSignal.timeout(10000)});
+    if(!resp.ok)throw new Error('proxy error '+resp.status);
+    const json=await resp.json();
+
+    /* The proxy returns the final URL in status.url — try parsing that first */
+    const finalUrl=json?.status?.url||'';
+    const fromUrl=tryParseDirect(finalUrl)||tryParseDirect(decodeURIComponent(finalUrl));
+    if(fromUrl&&Math.abs(fromUrl.lat)<=90&&Math.abs(fromUrl.lng)<=180){setCoords(fromUrl.lat,fromUrl.lng);return;}
+
+    /* Fall back to scanning the HTML content for coordinate patterns */
+    const html=json?.contents||'';
+    /* Pattern: @lat,lng inside HTML */
+    let m=html.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if(!m)m=html.match(/"lat"\s*:\s*(-?\d+\.?\d+)\s*,\s*"lng"\s*:\s*(-?\d+\.?\d+)/);
+    if(!m)m=html.match(/ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+    if(!m)m=html.match(/center=(-?\d+\.?\d+)%2C(-?\d+\.?\d+)/i);
+    /* Pattern inside JSON-LD or og:url */
+    if(!m){const ogMatch=html.match(/og:url.*?content="([^"]+)"/);if(ogMatch)m=ogMatch[1].match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);}
+    if(m){
+      const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
+      if(Math.abs(lat)<=90&&Math.abs(lng)<=180){setCoords(lat,lng);return;}
+    }
+    setError('❌ لم يتم التعرف على الإحداثيات — جرب فتح الخريطة ← مشاركة ← نسخ الرابط');
+  }catch(e){
+    if(e.name==='TimeoutError')setError('❌ انتهت مهلة الاتصال — تحقق من الإنترنت وأعد المحاولة');
+    else setError('❌ فشل تحليل الرابط: '+e.message);
   }
 }
 
@@ -2773,7 +2811,7 @@ function openEditCompany(co){
     +'<div style="display:flex;gap:8px;align-items:flex-start;">'
     +'<input class="fi" id="eco-maps-url" type="text" placeholder="الصق رابط Google Maps..." style="margin:0;flex:1;" '
     +'value="'+(existingFS?.lat&&existingFS?.lng?'https://maps.google.com/?q='+existingFS.lat+','+existingFS.lng:'')+'" '
-    +'oninput="parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\')">'
+    +'oninput="clearTimeout(window._mapsT);window._mapsT=setTimeout(()=>parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\'),700)">'
     +'<button type="button" class="btn b-p b-sm" onclick="parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\')" style="flex-shrink:0;">استخرج 📍</button>'
     +'</div>'
     +'<div id="eco-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);">'
