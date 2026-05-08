@@ -391,8 +391,16 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
               </select>
             </div>
             <div><div class="fl">عنوان الشركة</div><input class="fi" id="fs-addr" type="text" placeholder="مثال: ينبع الصناعية، مجمع أرامكو"></div>
-            <div><div class="fl">إحداثيات خرائط Google (خط العرض)</div><input class="fi" id="fs-lat" type="number" step="any" placeholder="24.7136"></div>
-            <div><div class="fl">إحداثيات خرائط Google (خط الطول)</div><input class="fi" id="fs-lng" type="number" step="any" placeholder="46.6753"></div>
+            <div style="grid-column:1/-1;">
+              <div class="fl">رابط خرائط Google</div>
+              <div style="display:flex;gap:8px;align-items:flex-start;">
+                <input class="fi" id="fs-maps-url" type="text" placeholder="الصق رابط Google Maps هنا..." style="margin:0;flex:1;" oninput="parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status')">
+                <button type="button" class="btn b-p b-sm" onclick="parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status')" style="white-space:nowrap;flex-shrink:0;">استخرج 📍</button>
+              </div>
+              <div id="fs-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);"></div>
+              <input type="hidden" id="fs-lat"><input type="hidden" id="fs-lng">
+              <div style="font-size:11px;color:var(--m);margin-top:4px;">افتح Google Maps → اضغط على الموقع → انسخ الرابط من شريط العنوان</div>
+            </div>
           </div>
         </div>
         <div class="etxt" id="u-er"></div>
@@ -1372,6 +1380,19 @@ function buildSup(){
     _supStu=[..._supStu.filter(s=>!newIds.includes(s.id)),...docs];
     setEl('sup-tot',_supStu.length);setEl('sup-sl',_supStu.length+' طالب');
     renderSupList();checkSupProgEvals();
+    /* Refresh advisor panel so filter reflects updated student list */
+    const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
+    const advs=_allAdvisors.filter(a=>myAdvIds.has(a.id));
+    const cl=document.getElementById('adv-cl');
+    if(cl&&_allAdvisors.length){
+      cl.innerHTML=advs.length?advs.map(a=>`
+        <div class="ar">
+          <div class="arav">${(a.name||'م')[0]}</div>
+          <div style="flex:1;"><div style="font-weight:700;">${a.name}</div><div style="font-size:12px;color:var(--m);">📧 ${a.email}</div></div>
+          <button class="btn b-p b-sm" data-cid="${a.id}" data-cnm="${a.name.replace(/'/g,"&#39;")}">💬 مراسلة</button>
+        </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون مرتبطون بمتدربيك</p>';
+      cl.querySelectorAll('[data-cid]').forEach(b=>b.addEventListener('click',()=>openChatWith(b.dataset.cid,b.dataset.cnm)));
+    }
   };
   _supStu=[];
   _unsub.push(window.FB.watchFieldSupStudents(CU.id,snap=>{
@@ -1402,14 +1423,17 @@ function buildSup(){
 async function loadAdvForSup(){
   if(!window.FB?.ready)return;
   _unsub.push(window.FB.watchAllAdvisors(snap=>{
-    const advs=snap.docs.map(d=>({id:d.id,...d.data()}));
-    _allAdvisors=advs;
+    const allAdvs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    _allAdvisors=allAdvs;
+    /* Only show advisors that are assigned to at least one of this supervisor's students */
+    const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
+    const advs=allAdvs.filter(a=>myAdvIds.has(a.id));
     document.getElementById('adv-cl').innerHTML=advs.length?advs.map(a=>`
       <div class="ar">
         <div class="arav">${(a.name||'م')[0]}</div>
         <div style="flex:1;"><div style="font-weight:700;">${a.name}</div><div style="font-size:12px;color:var(--m);">📧 ${a.email}</div></div>
         <button class="btn b-p b-sm" data-cid="${a.id}" data-cnm="${a.name.replace(/'/g,"&#39;")}">💬 مراسلة</button>
-      </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون</p>';
+      </div>`).join(''):'<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مرشدون مرتبطون بمتدربيك</p>';
     document.querySelectorAll('#adv-cl [data-cid]').forEach(b=>b.addEventListener('click',()=>openChatWith(b.dataset.cid,b.dataset.cnm)));
   }));
 }
@@ -1420,11 +1444,13 @@ function renderSupList(){
   if(expBtn){expBtn.style.display=_supStu.length>SHOW?'':'none';expBtn.textContent=_supAll?'−':'+';}
   document.getElementById('sup-sl2').innerHTML=toShow.length?toShow.map(s=>{
     const rated=!!(s.supervisorEval);
+    const adv=_allAdvisors.find(a=>a.id===s.advisorId);
+    const advLabel=adv?(' — <span style="font-size:11px;color:var(--p);font-weight:600;">د. '+(adv.name||'')+'</span>'):'';
     return '<div class="sr'+(_supSel===s.id?' sel':'')+'" data-sid="'+s.id+'">'
       +'<div style="position:relative;"><div class="sav">'+( s.name||'?')[0]+'</div>'
       +(rated?'<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#27AE60;border-radius:50%;border:2px solid #fff;" title="مُقيّم"></div>':'')
       +'</div>'
-      +'<div style="flex:1;min-width:0;"><div class="sn">'+s.name+'</div><div class="se">'+s.email+'</div></div>'
+      +'<div style="flex:1;min-width:0;"><div class="sn">'+s.name+advLabel+'</div><div class="se">'+s.email+'</div></div>'
       +(rated?'<span class="bx bd" style="font-size:11px;white-space:nowrap;">✅ مُقيّم</span>':'')
       +'<div class="sm2">'+(s.company||'—')+'</div>'
       +'</div>';
@@ -2450,6 +2476,41 @@ async function sendBC(){
 
 /* ══════════ INQUIRY BOX ══════════ */
 
+/* ── Google Maps URL parser ──
+   Handles all common Google Maps URL formats:
+   - https://maps.google.com/?q=24.123,46.456
+   - https://www.google.com/maps/@24.123,46.456,15z
+   - https://www.google.com/maps/place/.../@24.123,46.456,17z
+   - https://www.google.com/maps/search/?api=1&query=24.123%2C46.456
+   - https://goo.gl/maps/... (shortened — cannot resolve without server redirect)
+*/
+function parseMapsUrl(urlInputId,latHiddenId,lngHiddenId,statusId){
+  const raw=(document.getElementById(urlInputId)?.value||'').trim();
+  const status=document.getElementById(statusId);
+  if(!raw){if(status)status.textContent='';return;}
+  let lat=null,lng=null;
+  /* Pattern 1: @lat,lng,zoom */
+  let m=raw.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}
+  /* Pattern 2: ?q=lat,lng or &q=lat,lng */
+  if(!lat){m=raw.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
+  /* Pattern 3: query=lat,lng (possibly URL-encoded comma %2C) */
+  if(!lat){m=raw.match(/query=(-?\d+\.?\d*)(?:,|%2C)(-?\d+\.?\d*)/i);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
+  /* Pattern 4: /place/.../lat,lng (rare) */
+  if(!lat){m=raw.match(/\/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);}}
+  if(lat&&lng&&!isNaN(lat)&&!isNaN(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){
+    document.getElementById(latHiddenId).value=lat;
+    document.getElementById(lngHiddenId).value=lng;
+    if(status){status.style.color='#1B6B35';status.textContent='✅ تم استخراج الإحداثيات: '+lat.toFixed(5)+', '+lng.toFixed(5);}
+  } else {
+    document.getElementById(latHiddenId).value='';
+    document.getElementById(lngHiddenId).value='';
+    if(status){status.style.color='#A32D2D';status.textContent='❌ لم يتم التعرف على الإحداثيات — تأكد من نسخ الرابط الكامل من شريط العنوان';}
+  }
+}
+
+
+
 function autoFillCompany(val){
   const dl=document.getElementById('comp-datalist');
   if(!dl)return;
@@ -2461,10 +2522,17 @@ function autoFillCompany(val){
     const latEl=document.getElementById('fs-lat');
     const lngEl=document.getElementById('fs-lng');
     const cityEl=document.getElementById('fs-city');
-    if(addrEl&&existing.address)addrEl.value=existing.address;   /* FIX: also fill address */
+    const statusEl=document.getElementById('fs-maps-status');
+    const urlEl=document.getElementById('fs-maps-url');
+    if(addrEl&&existing.address)addrEl.value=existing.address;
     if(latEl&&existing.lat)latEl.value=existing.lat;
     if(lngEl&&existing.lng)lngEl.value=existing.lng;
     if(cityEl&&existing.city)cityEl.value=existing.city;
+    /* Rebuild the maps URL from existing coords so user can see/edit it */
+    if(existing.lat&&existing.lng){
+      if(urlEl)urlEl.value='https://maps.google.com/?q='+existing.lat+','+existing.lng;
+      if(statusEl){statusEl.style.color='#1B6B35';statusEl.textContent='✅ إحداثيات محفوظة: '+Number(existing.lat).toFixed(5)+', '+Number(existing.lng).toFixed(5);}
+    }
   }
 }
 
@@ -2701,8 +2769,18 @@ function openEditCompany(co){
     +'<option value="المدينة المنورة"'+(existingFS?.city==='المدينة المنورة'?' selected':'')+'>المدينة المنورة</option>'
     +'</select>'
     +'<div class="fl">العنوان</div><input class="fi" id="eco-addr" type="text" value="'+(existingFS?.address||'')+'">'
-    +'<div class="fl">خط العرض (latitude)</div><input class="fi" id="eco-lat" type="number" step="any" value="'+(existingFS?.lat||'')+'">'
-    +'<div class="fl">خط الطول (longitude)</div><input class="fi" id="eco-lng" type="number" step="any" value="'+(existingFS?.lng||'')+'">'
+    +'<div class="fl">رابط خرائط Google</div>'
+    +'<div style="display:flex;gap:8px;align-items:flex-start;">'
+    +'<input class="fi" id="eco-maps-url" type="text" placeholder="الصق رابط Google Maps..." style="margin:0;flex:1;" '
+    +'value="'+(existingFS?.lat&&existingFS?.lng?'https://maps.google.com/?q='+existingFS.lat+','+existingFS.lng:'')+'" '
+    +'oninput="parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\')">'
+    +'<button type="button" class="btn b-p b-sm" onclick="parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\')" style="flex-shrink:0;">استخرج 📍</button>'
+    +'</div>'
+    +'<div id="eco-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);">'
+    +(existingFS?.lat&&existingFS?.lng?'✅ إحداثيات محفوظة: '+existingFS.lat.toFixed(4)+', '+existingFS.lng.toFixed(4):'')
+    +'</div>'
+    +'<input type="hidden" id="eco-lat" value="'+(existingFS?.lat||'')+'">'
+    +'<input type="hidden" id="eco-lng" value="'+(existingFS?.lng||'')+'">'
     +'<div class="etxt" id="eco-er"></div>';
   document.getElementById('mr-ft').innerHTML=''
     +'<button class="btn b-p" id="eco-sv-btn">حفظ ✅</button>'
