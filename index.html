@@ -236,6 +236,9 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .fts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 .ft{padding:6px 14px;border:1.5px solid var(--b);border-radius:50px;background:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--m);transition:all .2s;}
 .ft.active{background:var(--p);color:#fff;border-color:var(--p);}
+.inq-nav{display:block;width:100%;text-align:right;padding:10px 16px;font-size:13px;font-weight:500;color:var(--t);background:none;border:none;cursor:pointer;border-right:3px solid transparent;transition:background .15s,border-color .15s;}
+.inq-nav:hover{background:#EDE8F8;}
+.inq-nav.active{background:#EDE8F8;border-right-color:var(--p);color:var(--p);font-weight:700;}
 .ur{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:10px;flex-wrap:wrap;}
 .rb{padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;}
 .rb-s{background:#D4EDDA;color:#1B6B35;}.rb-a{background:#CCE5FF;color:#004085;}.rb-u{background:#F8D7DA;color:#721C24;}
@@ -403,6 +406,10 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
           <button class="ft" data-r="advisor" onclick="filterU(this,'advisor')">المرشدون</button>
           <button class="ft" data-r="supervisor" onclick="filterU(this,'supervisor')">المشرفون</button>
         </div>
+        <div style="position:relative;margin-bottom:14px;">
+          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--m);">🔍</span>
+          <input class="fi" id="u-search" type="text" placeholder="ابحث بالاسم أو البريد..." style="margin:0;padding-right:36px;" oninput="renderUsrList(document.querySelector('.ft.active')?.dataset.r||'all')">
+        </div>
         <div id="u-lst"><p style="text-align:center;color:var(--m);padding:20px;">جارٍ التحميل...</p></div>
       </div>
     </div>
@@ -412,28 +419,33 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 
 <!-- MODAL: INQUIRY BOX (استعلام) -->
 <div class="mo" id="m-inq">
-  <div class="mb" style="max-width:900px;">
+  <div class="mb" style="max-width:960px;">
     <div class="mh"><div class="mti">🔍 صندوق الاستعلام</div><button class="mcl" onclick="closeM('m-inq')">✕</button></div>
-    <div class="mbd" style="padding:0;">
-      <div style="padding:20px;background:#F9F7FF;border-bottom:1px solid var(--b);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <div class="fl" style="margin-bottom:0;white-space:nowrap;">استعلم عن طلاب رفعوا:</div>
-        <select class="fi" id="inq-filter" style="margin-bottom:0;width:auto;min-width:220px;">
-          <option value="none">لم يرفعوا أي تقرير</option>
-          <option value="1">التقرير الأول فقط</option>
-          <option value="2">التقرير الثاني فقط</option>
-          <option value="3">التقرير الثالث فقط</option>
-          <option value="4">التقرير الرابع فقط</option>
-          <option value="5">التقرير الخامس فقط</option>
-          <option value="6">التقرير السادس فقط</option>
-          <option value="7">التقرير السابع فقط</option>
-          <option value="8">التقرير الثامن فقط</option>
-          <option value="9">التقرير التاسع فقط</option>
-          <option value="10">التقرير العاشر فقط</option>
-          <option value="final">أرسلوا التقرير النهائي</option>
-        </select>
-        <button class="btn b-p b-sm" onclick="runInquiry()">بحث 🔍</button>
+    <div class="mbd" style="padding:0;display:flex;min-height:460px;">
+      <!-- Sidebar filter list -->
+      <div style="width:220px;flex-shrink:0;background:#F9F7FF;border-left:1px solid var(--b);padding:12px 0;overflow-y:auto;display:flex;flex-direction:column;">
+        <div style="font-size:11px;font-weight:700;color:var(--m);padding:0 14px 8px;text-transform:uppercase;letter-spacing:.05em;">رفع التقارير</div>
+        <button class="inq-nav" data-inq="none">لم يرفعوا أي تقرير</button>
+        <button class="inq-nav" data-inq="1">التقرير الأول</button>
+        <button class="inq-nav" data-inq="2">التقرير الثاني</button>
+        <button class="inq-nav" data-inq="3">التقرير الثالث</button>
+        <button class="inq-nav" data-inq="4">التقرير الرابع</button>
+        <button class="inq-nav" data-inq="5">التقرير الخامس</button>
+        <button class="inq-nav" data-inq="6">التقرير السادس</button>
+        <button class="inq-nav" data-inq="7">التقرير السابع</button>
+        <button class="inq-nav" data-inq="8">التقرير الثامن</button>
+        <button class="inq-nav" data-inq="9">التقرير التاسع</button>
+        <button class="inq-nav" data-inq="10">التقرير العاشر</button>
+        <button class="inq-nav" data-inq="final">أرسلوا التقرير النهائي</button>
+        <div style="height:1px;background:var(--b);margin:8px 14px;"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--m);padding:0 14px 8px;text-transform:uppercase;letter-spacing:.05em;">التقييمات</div>
+        <button class="inq-nav" data-inq="rated">طلاب قُيّموا ⭐</button>
+        <button class="inq-nav" data-inq="progeval">تقييم برنامج التدريب 📋</button>
       </div>
-      <div id="inq-results" style="padding:20px;"><p style="color:var(--m);text-align:center;">اختر معياراً وابحث</p></div>
+      <!-- Results pane -->
+      <div id="inq-results" style="flex:1;padding:20px;overflow-y:auto;">
+        <p style="color:var(--m);text-align:center;margin-top:60px;">اختر معياراً من القائمة</p>
+      </div>
     </div>
   </div>
 </div>
@@ -569,7 +581,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
   <div class="db">
     <div id="adv-notif-area"></div>
     <div id="adv-progeval-notif" class="card" style="display:none;border:2px solid var(--p);">
-      <div class="ch"><div class="ct">📬 استمارات تقييم البرنامج التدريبي الواردة</div><button class="tb" onclick="document.getElementById('adv-progeval-notif').style.display='none'">−</button></div>
+      <div class="ch"><div class="ct">📬 استمارات تقييم البرنامج التدريبي الواردة</div><button class="tb" id="adv-progeval-tb" onclick="toggleCardContent('adv-progeval-list','adv-progeval-tb')">−</button></div>
       <div id="adv-progeval-list"></div>
     </div>
     <div class="sg">
@@ -633,12 +645,12 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div id="sup-rct"></div>
     </div>
     <div id="sup-fp" class="card" style="display:none;">
-      <div class="ch"><div class="ct">📋 تقييم الطلاب</div><button class="tb" onclick="document.getElementById('sup-fp').style.display='none'">−</button></div>
+      <div class="ch"><div class="ct">📋 تقييم الطلاب</div><button class="tb" id="sup-fp-tb" onclick="toggleCardContent('sup-fc','sup-fp-tb')">−</button></div>
       <div id="sup-fc"></div>
     </div>
     <!-- Program eval notifications from students completing all reports -->
     <div id="sup-progeval-card" class="card" style="display:none;">
-      <div class="ch"><div class="ct">📋 استمارة تقييم برنامج التدريب الميداني</div><button class="tb" onclick="document.getElementById('sup-progeval-card').style.display='none'">−</button></div>
+      <div class="ch"><div class="ct">📋 استمارة تقييم برنامج التدريب الميداني</div><button class="tb" id="sup-progeval-tb" onclick="toggleCardContent('sup-progeval-list','sup-progeval-tb')">−</button></div>
       <div id="sup-progeval-list"></div>
     </div>
   </div>
@@ -774,6 +786,16 @@ async function doLogin(){
   }catch(e){er.textContent=e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'?'بريد إلكتروني أو كلمة مرور غير صحيحة':e.message;}
   finally{btn.disabled=false;btn.textContent='تسجيل الدخول';}
 }
+/* ──── Generic collapse/expand helper for cards with +/− buttons ──── */
+function toggleCardContent(contentId,btnId){
+  const content=document.getElementById(contentId);
+  const btn=document.getElementById(btnId);
+  if(!content)return;
+  const isOpen=content.style.display!=='none';
+  content.style.display=isOpen?'none':'block';
+  if(btn)btn.textContent=isOpen?'+':'−';
+}
+
 function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];_selCompany=null;_selFSup=null;_chatFilter='all';show('sr');}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('sl').classList.contains('active'))doLogin();});
 
@@ -1611,7 +1633,12 @@ async function submitLastRepWithEval(r,s){
 }
 
 async function openSupFins(){
-  const panel=document.getElementById('sup-fp');panel.style.display='block';
+  const panel=document.getElementById('sup-fp');
+  panel.style.display='block';
+  const content=document.getElementById('sup-fc');
+  content.style.display='block';
+  const tb=document.getElementById('sup-fp-tb');
+  if(tb)tb.textContent='−';
   if(!window.FB?.ready)return;
   /* Use a one-time read — watchUser here leaks because there's nowhere to store + clean up the unsub */
   const snap=await window.FB.getUser(CU.id);
@@ -1719,11 +1746,20 @@ async function renderUsrList(rf){
   const el=document.getElementById('u-lst');
   if(!window.FB?.ready){el.innerHTML='<p style="text-align:center;color:var(--m);">Firebase غير متصل</p>';return;}
   el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">جارٍ التحميل...</p>';
+  const searchQ=(document.getElementById('u-search')?.value||'').trim().toLowerCase();
   try{
     const snap=await window.FB.getAllUsers();
     const allUsers=snap.docs.map(d=>({id:d.id,...d.data()}));
     let users=[...allUsers];
     if(rf!=='all')users=users.filter(u=>u.role===rf);
+    /* Scope students: advisor only sees their own students */
+    if(CR==='advisor'&&(rf==='all'||rf==='student')){
+      users=users.filter(u=>u.role!=='student'||u.advisorId===CU.id);
+    }
+    /* Apply search */
+    if(searchQ){
+      users=users.filter(u=>(u.name||'').toLowerCase().includes(searchQ)||(u.email||'').toLowerCase().includes(searchQ)||(u.company||'').toLowerCase().includes(searchQ));
+    }
     if(!users.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">لا يوجد مستخدمون</p>';return;}
     const rc={student:'rb-s',advisor:'rb-a',supervisor:'rb-u'};
     const rl={student:'طالب',advisor:'مرشد أكاديمي',supervisor:'مشرف التدريب'};
@@ -2441,18 +2477,84 @@ function autoFillStudentCompany(fsupId){
   if(coEl&&fs.company)coEl.value=fs.company;
 }
 
-async function openInquiry(){ openM('m-inq'); }
-async function runInquiry(){
-  const filter=document.getElementById('inq-filter').value;
+async function openInquiry(){
+  openM('m-inq');
+  /* Attach sidebar nav click listeners */
+  document.querySelectorAll('.inq-nav').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('.inq-nav').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      runInquiry(btn.dataset.inq);
+    };
+  });
+}
+async function runInquiry(filter){
   const el=document.getElementById('inq-results');
-  el.innerHTML='<p style="text-align:center;color:var(--m);padding:16px;">جارٍ البحث...</p>';
-  if(!window.FB?.ready){el.innerHTML='<p style="color:red;">Firebase غير متصل</p>';return;}
-  
+  el.innerHTML='<p style="text-align:center;color:var(--m);padding:24px;">جارٍ البحث...</p>';
+  if(!window.FB?.ready){el.innerHTML='<p style="color:red;padding:20px;">Firebase غير متصل</p>';return;}
+
+  /* ── NEW: طلاب قُيّموا (students that have a field eval from advisor request) ── */
+  if(filter==='rated'){
+    const evSnap=await window.FB.getAllFieldEvals();
+    const myStudentIds=new Set(_advStu.map(s=>s.id));
+    const evals=evSnap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>myStudentIds.has(e.studentId));
+    if(!evals.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:40px;">لم يتم تقييم أي طالب حتى الآن</p>';return;}
+    el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 12px;font-weight:700;">وُجد '+evals.length+' طالب مُقيَّم</div>'
+      +evals.map(ev=>{
+        const s=_advStu.find(x=>x.id===ev.studentId);
+        return '<div class="ur" style="flex-wrap:wrap;">'
+          +'<div class="sav">'+(ev.studentName||'?')[0]+'</div>'
+          +'<div style="flex:1;min-width:0;"><div style="font-weight:700;">'+(ev.studentName||'—')+'</div>'
+          +'<div style="font-size:12px;color:var(--m);">مقيَّم من: '+(ev.evaluatorName||'مشرف التدريب')+' — '+(ev.evaluatedAt?new Date(ev.evaluatedAt).toLocaleDateString('ar-SA'):'')+'</div>'
+          +'<div style="font-size:12px;color:var(--m);">المجموع: <strong style="color:var(--p);">'+(ev.total||'—')+' / 100</strong></div></div>'
+          +'<button class="btn b-v b-sm" data-ev-id="'+ev.id+'" data-ev-sid="'+ev.studentId+'" data-ev-snm="'+(ev.studentName||'')+'">عرض التقييم 📋</button>'
+          +'</div>';
+      }).join('');
+    el.querySelectorAll('[data-ev-id]').forEach(b=>b.addEventListener('click',async()=>{
+      const evData=evals.find(e=>e.id===b.dataset.evId);
+      if(!evData)return;
+      document.getElementById('mr-ti').textContent='تقييم — '+b.dataset.evSnm;
+      document.getElementById('mr-bd').innerHTML=stuEvalFormHTML(b.dataset.evSid,true,evData);
+      document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+      closeM('m-inq');openM('m-rep');
+    }));
+    return;
+  }
+
+  /* ── NEW: تقييم برنامج التدريب من جهة التدريب (last report eval by supervisor) ── */
+  if(filter==='progeval'){
+    const evSnap=await window.FB.getAllFieldEvals();
+    const myStudentIds=new Set(_advStu.map(s=>s.id));
+    /* Only entries with lastRepEval_ prefix (from supervisor completing last report) */
+    const evals=evSnap.docs
+      .filter(d=>d.id.startsWith('lastRepEval_')&&myStudentIds.has(d.data().studentId))
+      .map(d=>({id:d.id,...d.data()}));
+    if(!evals.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:40px;">لم يتم رفع أي استمارة تقييم برنامج بعد</p>';return;}
+    el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 12px;font-weight:700;">وُجد '+evals.length+' استمارة</div>'
+      +evals.map(ev=>'<div class="ur" style="flex-wrap:wrap;">'
+        +'<div class="sav">'+(ev.studentName||'?')[0]+'</div>'
+        +'<div style="flex:1;min-width:0;"><div style="font-weight:700;">'+(ev.studentName||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--m);">مقيَّم من: '+(ev.supervisorName||'مشرف التدريب')+' — '+(ev.submittedAt?new Date(ev.submittedAt).toLocaleDateString('ar-SA'):'')+'</div>'
+        +'<div style="font-size:12px;color:var(--m);">الجهة: '+(ev.company||'—')+'</div></div>'
+        +'<button class="btn b-v b-sm" data-lre-id="'+ev.id+'" data-lre-sid="'+ev.studentId+'" data-lre-snm="'+(ev.studentName||'')+'">عرض الاستمارة 📋</button>'
+        +'</div>'
+      ).join('');
+    el.querySelectorAll('[data-lre-id]').forEach(b=>b.addEventListener('click',()=>{
+      const evData=evals.find(e=>e.id===b.dataset.lreId);
+      if(!evData)return;
+      document.getElementById('mr-ti').textContent='استمارة تقييم البرنامج — '+b.dataset.lreSnm;
+      document.getElementById('mr-bd').innerHTML=lastRepProgEvalFormHTML(b.dataset.lreSid,true,evData);
+      document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+      closeM('m-inq');openM('m-rep');
+    }));
+    return;
+  }
+
+  /* ── التقرير النهائي ── */
   if(filter==='final'){
-    // Show students who sent final report
     const snap=await window.FB.getAllFinals();
     const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.advisorId===CU.id);
-    if(!fins.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا يوجد طلاب أرسلوا التقرير النهائي</p>';return;}
+    if(!fins.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:40px;">لا يوجد طلاب أرسلوا التقرير النهائي</p>';return;}
     const stlbl={pending_advisor:'بانتظار المراجعة',approved:'معتمد',advisor_declined:'مرفوض'};
     el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 10px;font-weight:700;">وُجد '+fins.length+' طالب</div>'
       +fins.map(f=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;">'
@@ -2462,7 +2564,7 @@ async function runInquiry(){
         +'<div style="font-size:12px;color:var(--m);">'+f.title+'</div></div>'
         +bdg(stlbl[f.status]||f.status)
         +'<button class="btn b-v b-sm" data-fv-inq="'+f.id+'">عرض 📄</button>'
-        +(f.status==='pending_advisor'?'<button class="btn b-a b-sm" data-fa-inq="'+f.id+'" data-fs-inq="'+f.studentName+'">اعتماد ✅</button><button class="btn b-r b-sm" data-fd-inq="'+f.id+'">رفض ❌</button>':'')
+        +(f.status==='pending_advisor'?'<button class="btn b-a b-sm" data-fa-inq="'+f.id+'">اعتماد ✅</button><button class="btn b-r b-sm" data-fd-inq="'+f.id+'">رفض ❌</button>':'')
         +'</div>'
         +'<div style="font-size:13px;padding:8px;background:#fff;border-radius:8px;"><strong>المستخلص:</strong> '+f.abstract+'</div>'
         +'<div id="inq-decl-'+f.id+'" style="display:none;margin-top:8px;"><textarea class="fi" id="inq-dc-'+f.id+'" rows="2" placeholder="سبب الرفض..."></textarea><button class="btn b-r b-sm" data-fdc-inq="'+f.id+'">تأكيد الرفض</button></div>'
@@ -2471,18 +2573,19 @@ async function runInquiry(){
     el.querySelectorAll('[data-fv-inq]').forEach(b=>b.addEventListener('click',()=>viewFinalMod(b.dataset.fvInq)));
     el.querySelectorAll('[data-fa-inq]').forEach(b=>b.addEventListener('click',async()=>{
       await window.FB.updateFinal(b.dataset.faInq,{status:'approved',approvedAt:new Date().toISOString()});
-      toast('✅ تم اعتماد التقرير النهائي');runInquiry();
+      toast('✅ تم اعتماد التقرير النهائي');runInquiry('final');
     }));
     el.querySelectorAll('[data-fd-inq]').forEach(b=>b.addEventListener('click',()=>{document.getElementById('inq-decl-'+b.dataset.fdInq).style.display='block';}));
     el.querySelectorAll('[data-fdc-inq]').forEach(b=>b.addEventListener('click',async()=>{
       const cm=document.getElementById('inq-dc-'+b.dataset.fdcInq)?.value.trim();
       if(!cm){toast('يرجى كتابة سبب الرفض');return;}
       await window.FB.updateFinal(b.dataset.fdcInq,{status:'advisor_declined',declineComment:cm});
-      toast('❌ تم رفض التقرير النهائي');runInquiry();
+      toast('❌ تم رفض التقرير النهائي');runInquiry('final');
     }));
     return;
   }
-  
+
+  /* ── رفع التقارير الأسبوعية ── */
   const weekNum=filter==='none'?null:parseInt(filter);
   const results=[];
   await Promise.all(_advStu.map(async s=>{
@@ -2495,10 +2598,9 @@ async function runInquiry(){
       if(rep) results.push({s,rep});
     }
   }));
-  if(!results.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:20px;">لا يوجد طلاب يطابقون هذا المعيار</p>';return;}
+  if(!results.length){el.innerHTML='<p style="text-align:center;color:var(--m);padding:40px;">لا يوجد طلاب يطابقون هذا المعيار</p>';return;}
   el.innerHTML='<div style="font-size:13px;color:var(--m);padding:0 0 10px;font-weight:700;">وُجد '+results.length+' طالب</div>'
-    +results.map(({s,rep})=>'<div class="inq-row" style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;">'
-      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    +results.map(({s,rep})=>'<div class="ur" style="flex-wrap:wrap;">'
       +'<div class="sav">'+(s.name||'?')[0]+'</div>'
       +'<div style="flex:1;min-width:0;"><div style="font-weight:700;">'+s.name+'</div><div style="font-size:12px;color:var(--m);">'+s.email+'</div></div>'
       +(rep?bdg(rep.status)+'<button class="btn b-v b-sm" data-inq-rid2="'+rep.id+'" data-inq-sid2="'+s.id+'">عرض 📄</button>'
