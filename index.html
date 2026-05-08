@@ -94,6 +94,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t);min-he
 /* ROLES */
 #sr{flex-direction:column;background:#D4D4D4;}
 .hdr{background:var(--p);padding:28px 0;text-align:center;}.hdr h1{color:#fff;font-size:26px;font-weight:800;}
+@media(max-width:480px){.hdr h1{font-size:20px;padding:0 12px;}}
 .roles{flex:1;display:flex;align-items:center;justify-content:center;padding:60px 40px;gap:28px;flex-wrap:wrap;}
 .rc{width:190px;height:190px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s;box-shadow:0 6px 24px rgba(0,0,0,.14);animation:pi .5s ease both;}
 .rc:nth-child(1){animation-delay:.1s;}.rc:nth-child(2){animation-delay:.2s;}.rc:nth-child(3){animation-delay:.3s;}
@@ -263,7 +264,47 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .sp{width:40px;height:40px;border:4px solid var(--b);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 #tst{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#2C3E50;color:#fff;padding:11px 24px;border-radius:50px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
-@media(max-width:700px){.sg{grid-template-columns:repeat(2,1fr);}.db{padding:16px;}.dt{padding:0 14px;}.roles{padding:40px 16px;gap:16px;}.rc{width:150px;height:150px;}.ri{font-size:34px;}.lc{padding:36px 24px 40px;margin:16px;}.fg2,.rig,.eg{grid-template-columns:1fr;}.clst{width:160px;}}
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:900px){
+  .dta{gap:6px;}
+  .bt{padding:6px 10px;font-size:12px;}
+}
+@media(max-width:700px){
+  .sg{grid-template-columns:repeat(2,1fr);}
+  .db{padding:12px;}
+  .dt{padding:0 10px;height:auto;min-height:58px;flex-wrap:wrap;gap:8px;padding-top:8px;padding-bottom:8px;}
+  .dta{gap:5px;flex-wrap:wrap;}
+  .bt{padding:5px 9px;font-size:11.5px;gap:4px;}
+  .roles{padding:32px 12px;gap:14px;}
+  .rc{width:130px;height:130px;border-radius:18px;gap:10px;}
+  .ri{font-size:30px;}
+  .rl{font-size:14px;}
+  .lc{padding:28px 18px 32px;margin:12px;}
+  .fg2,.rig,.eg{grid-template-columns:1fr;}
+  .cw{flex-direction:column;height:auto;}
+  .clst{width:100%!important;max-height:180px;border-left:none!important;border-bottom:1px solid var(--b);}
+  .cms{min-height:220px;}
+  .mb{border-radius:14px;}
+  .mbd{padding:16px;}
+  .mh{padding:14px 16px;}
+  .mft{padding:12px 16px;flex-wrap:wrap;}
+  .tw{font-size:12px;}
+  thead th{padding:10px 10px;font-size:11.5px;}
+  tbody td{padding:9px 10px;}
+  .fb{padding:14px 16px;}
+  .fbt h3{font-size:14px;}
+  .ndc{padding:16px;}
+  #m-inq .mb>[class*="mbd"],[id="m-inq"] .mbd{flex-direction:column!important;}
+  /* inquiry sidebar goes horizontal on mobile */
+  #m-inq .mbd{flex-direction:column!important;}
+  #m-inq .mbd>div:first-child{width:100%!important;max-height:160px;border-left:none!important;border-bottom:1px solid var(--b);flex-direction:row!important;flex-wrap:wrap;padding:8px 0;}
+  .inq-nav{display:inline-block;width:auto;padding:6px 12px;border-right:none!important;border-radius:50px;border:1.5px solid var(--b);margin:3px;font-size:12px;}
+  .inq-nav.active{border-color:var(--p);background:var(--pl);}
+  /* companies modal */
+  #m-comp .mbd{flex-direction:column!important;}
+  /* supervisor contact list in companies */
+  #comp-list,#comp-fsup-list{max-height:130px;}
+}
 </style>
 </head>
 <body>
@@ -685,6 +726,9 @@ let _allAdvisors=[], _allSupervisors=[], _allFieldSups=[]; // for user creation 
 let _selCompany=null, _selFSup=null; // for companies box
 let _chatFilter='all'; // 'all', 'students', 'supervisors'
 let _unreadConvs=new Set(); // conv IDs with unread for current user
+/* Dedicated per-student report listener handles (avoids pile-up leak) */
+let _advDetUnsub=null, _supRepUnsub=null;
+let _advDetLastReps=[], _supRepLastReps=[];
 
 /* ══════════ HELPERS ══════════ */
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
@@ -704,7 +748,13 @@ function closeM(id){
   el.classList.remove('open');
   el.style.zIndex='';
 }
-document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target===m){
+    if(m.id==='m-comp'&&_companiesUnsub){try{_companiesUnsub();}catch(e2){}_companiesUnsub=null;}
+    m.classList.remove('open');
+    m.style.zIndex='';
+  }
+}));
 function setEl(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function ld(on){document.getElementById('lov').classList.toggle('on',on);}
 function toast(msg){const t=document.getElementById('tst');t.textContent=msg;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',3600);}
@@ -802,7 +852,19 @@ function toggleCardContent(contentId,btnId){
   if(btn)btn.textContent=isOpen?'+':'−';
 }
 
-function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];_selCompany=null;_selFSup=null;_chatFilter='all';show('sr');}
+function doLogout(){
+  if(window.FB?.ready)window.FB.logout();
+  CU=null;CR=null;unsub();
+  if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;
+  if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;
+  if(_advDetUnsub){try{_advDetUnsub();}catch(e){}}_advDetUnsub=null;
+  if(_supRepUnsub){try{_supRepUnsub();}catch(e){}}_supRepUnsub=null;
+  _advStu=[];_supStu=[];_advSel=null;_supSel=null;
+  _advDetLastReps=[];_supRepLastReps=[];
+  _unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];
+  _selCompany=null;_selFSup=null;_chatFilter='all';
+  show('sr');
+}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('sl').classList.contains('active'))doLogin();});
 
 /* ══════════ BUILD DASHBOARDS ══════════ */
@@ -1025,41 +1087,18 @@ function previewFile(inp){
 }
 
 
-async function openStuProgEval(){
-  const el=document.getElementById('stu-prog-eval-content');
-  const ftr=document.getElementById('stu-prog-eval-footer');
-  if(!el||!ftr)return;
-  // Check if already submitted
-  if(window.FB?.ready){
-    const snap=await window.FB.getUser(CU.id);
-    const existing=snap.data()?.programEval;
-    if(existing){
-      el.innerHTML=progEvalFormHTML(CU.id,true,{...existing,studentName:CU.name,date:existing.submittedAt?new Date(existing.submittedAt).toLocaleDateString('ar-SA'):'—'});
-      ftr.innerHTML='<div style="background:#D4EDDA;border-radius:10px;padding:10px 14px;font-size:13px;color:#1B6B35;">✅ تم إرسال التقييم — شكراً لك!</div>';
-      return;
-    }
-  }
-  el.innerHTML=progEvalFormHTML(CU.id,false,null);
-  ftr.innerHTML='<button class="btn b-p" onclick="submitStuProgEval()">إرسال التقييم 📋</button>';
-}
-async function submitStuProgEval(){
-  const data=collectProgEval(CU.id);
-  const hasAll=data.ratings.every(r=>r.rating!==null);
-  if(!hasAll){toast('يرجى تقييم جميع العناصر');return;}
-  data.submittedAt=new Date().toISOString();data.studentName=CU.name;
-  if(window.FB?.ready)await window.FB.updateUser(CU.id,{programEval:data});
-  document.getElementById('stu-prog-eval-footer').innerHTML='<div style="background:#D4EDDA;border-radius:10px;padding:10px 14px;font-size:13px;color:#1B6B35;">✅ تم إرسال التقييم — شكراً لك!</div>';
-  toast('✅ تم إرسال تقييم البرنامج التدريبي');
-}
+/* openStuProgEval / submitStuProgEval removed — corresponding DOM elements do not exist in the student screen */
+
+
 
 async function submitStuFinal(){
   const title=document.getElementById('fin-t')?.value.trim(),abs=document.getElementById('fin-a')?.value.trim();
   const fileInp=document.getElementById('fin-f');const file=fileInp?.files[0];
-  const file2Inp=document.getElementById('fin-f2');const file2=file2Inp?.files[0];
+  const file2Inp=document.getElementById('fin-f2');const _file2Check=file2Inp?.files[0];
   const er=document.getElementById('fin-er');
   if(!title||!abs){er.textContent='يرجى ملء العنوان والمستخلص';return;}
   if(!file){er.textContent='ملف التقرير إلزامي';return;}
-  if(!file2){er.textContent='ملف استبيان الجهة إلزامي';return;}
+  if(!_file2Check){er.textContent='ملف استبيان الجهة إلزامي';return;}
   er.textContent='';
   let fileData={name:'',size:0,type:''};
   if(file){
@@ -1078,14 +1117,14 @@ async function submitStuFinal(){
       const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result.split(',')[1]);fr.onerror=rej;fr.readAsDataURL(f);});
       return{name:f.name,size:f.size,type:f.type,base64:b64};
     }
-    const file2=await readFile(document.getElementById('fin-f2'));
+    const file2Data=await readFile(document.getElementById('fin-f2'));
     const file3=await readFile(document.getElementById('fin-f3'));
     await window.FB.setFinal(CU.id,{
       studentId:CU.id,studentName:CU.name,
       advisorId:CU.advisorId||'',
       supervisorId:CU.supervisorId||'',
       title,abstract:abs,file:fileData,
-      file2:file2||null,file3:file3||null,
+      file2:file2Data||null,file3:file3||null,
       status:'pending_advisor',declineComment:'',
       submittedAt:new Date().toISOString()
     });
@@ -1104,6 +1143,8 @@ function buildAdv(){
     setEl('adv-cnt',_advStu.length);setEl('adv-sl',`${_advStu.length} طالب`);
     renderAdvList();
     if(document.getElementById('adv-rq-panel')?.style.display==='block')renderAdvRqList();
+    /* Reset aggregate stats when student list refreshes */
+    setEl('adv-tot','—');setEl('adv-dn','—');setEl('adv-rt','—');
   }));
   _unsub.push(window.FB.watchAllSupervisors(snap=>{
     _allSupervisors=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1143,23 +1184,19 @@ function renderAdvList(){
 function togAdv(){if(_advStu.length<=3)return;_advAll=!_advAll;renderAdvList();}
 
 function advSel(sid){
+  /* Cleanup previous per-student listener to prevent pile-up */
+  if(_advDetUnsub){try{_advDetUnsub();}catch(e){}_advDetUnsub=null;}
   _advSel=sid;_advRem=false;renderAdvList();
   const s=_advStu.find(x=>x.id===sid);if(!s)return;
   document.getElementById('adv-det').style.display='block';
   setEl('adv-dn2',`تفاصيل — ${s.name}`);
   document.getElementById('adv-dc').innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">جارٍ التحميل...</p>';
   if(window.FB?.ready){
-    const unsb=window.FB.watchReports(sid,snap=>{
+    _advDetUnsub=window.FB.watchReports(sid,snap=>{
       const reps=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.weekNum||0)-(b.weekNum||0));
+      _advDetLastReps=reps;
       renderAdvDet(s,reps);
-      // Update stats
-      let tot=0,dn=0;
-      _advStu.forEach(()=>{});
-      const allReps=reps;
-      tot=allReps.length;dn=allReps.filter(r=>r.status==='مكتمل').length;
-      setEl('adv-tot',allReps.length);setEl('adv-dn',dn);setEl('adv-rt',tot?Math.round(dn/tot*100)+'%':'0%');
     });
-    _unsub.push(unsb);
   }
   document.getElementById('adv-det').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -1167,6 +1204,10 @@ function advSel(sid){
 function renderAdvDet(s,reps){
   const rem=reps.filter(r=>r.status!=='مكتمل');
   const advPending=reps.filter(r=>r.supervisorStatus==='معتمد'&&r.status!=='مكتمل');
+  const dn=reps.filter(r=>r.status==='مكتمل').length;
+  /* Update per-student stats */
+  setEl('adv-tot',reps.length);setEl('adv-dn',dn);
+  setEl('adv-rt',reps.length?Math.round(dn/reps.length*100)+'%':'0%');
   document.getElementById('adv-rem').textContent=_advRem?`− إخفاء (${rem.length})`:`+ المتبقية (${rem.length-advPending.length})${advPending.length?' 🔔 '+advPending.length+' بانتظار تقييمك':''}`;
   const toShow=_advRem?reps:reps.filter(r=>r.status==='مكتمل'||r.supervisorStatus==='معتمد');
   document.getElementById('adv-dc').innerHTML=`
@@ -1189,7 +1230,13 @@ function renderAdvDet(s,reps){
   document.querySelectorAll('[data-vr]').forEach(b=>b.addEventListener('click',()=>{const r=reps.find(x=>x.id===b.dataset.vr);if(r)openRepView(s,r);}));
   document.querySelectorAll('[data-rate-rid]').forEach(b=>b.addEventListener('click',()=>{const r=reps.find(x=>x.id===b.getAttribute('data-rate-rid'));if(r)openAdvRate(s,r);}));
 }
-function togAdvRem(){_advRem=!_advRem;if(_advSel)advSel(_advSel);}
+function togAdvRem(){
+  _advRem=!_advRem;
+  if(_advSel){
+    const s=_advStu.find(x=>x.id===_advSel);
+    if(s&&_advDetLastReps.length)renderAdvDet(s,_advDetLastReps);
+  }
+}
 
 function openAdvRate(s,r){
   const frm=document.getElementById('adv-rate-frm');frm.style.display='block';
@@ -1438,17 +1485,19 @@ function renderSupList(){
 function togSup(){_supAll=!_supAll;renderSupList();}
 
 function supSel(sid){
+  /* Cleanup previous per-student listener */
+  if(_supRepUnsub){try{_supRepUnsub();}catch(e){}_supRepUnsub=null;}
   _supSel=sid;renderSupList();
   const s=_supStu.find(x=>x.id===sid);if(!s)return;
   setEl('sup-rt',`تقارير — ${s.name}`);
   document.getElementById('sup-rc').style.display='block';
   document.getElementById('sup-rct').innerHTML='<p style="color:var(--m);padding:16px;text-align:center;">جارٍ التحميل...</p>';
   if(window.FB?.ready){
-    const unsb=window.FB.watchReports(sid,snap=>{
+    _supRepUnsub=window.FB.watchReports(sid,snap=>{
       const reps=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.weekNum||0)-(b.weekNum||0));
+      _supRepLastReps=reps;
       renderSupReps(s,reps);
     });
-    _unsub.push(unsb);
   }
   document.getElementById('sup-rc').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -2232,50 +2281,8 @@ async function renderAdvRqList(){
   });
 }
 
-/* ══════════ FIELD SUPERVISOR DASHBOARD ══════════ */
-function buildFSup(){
-  if(!CU){show('sr');return;}
-  setEl('fs-nm',CU.name||'المشرف الميداني');setEl('fs-av',(CU.name||'م')[0]);
-  if(!window.FB?.ready)return;
-  _unsub.push(window.FB.watchFieldSupStudents(CU.id,snap=>{
-    const stus=snap.docs.map(d=>({id:d.id,...d.data()}));
-    setEl('fs-cnt',stus.length);
-    renderFSupStudents(stus);
-  }));
-  _unsub.push(window.FB.watchFinals(snap=>{
-    const fins=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>f.supervisorId===CU.id);
-    setEl('fs-fins',fins.length);
-    renderFSupFinals(fins);
-  }));
-  _unsub.push(window.FB.watchFieldEvals(snap=>{
-    const evs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.supervisorId===CU.id);
-    setEl('fs-evals',evs.length);
-  }));
-}
-function renderFSupStudents(stus){
-  const el=document.getElementById('fs-stu-list');
-  if(!stus.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:20px;">لا يوجد طلاب معيّنون بعد</p>';return;}
-  el.innerHTML=stus.map(s=>'<div class="sr">'
-    +'<div class="sav">'+(s.name||'?')[0]+'</div>'
-    +'<div style="flex:1;"><div class="sn">'+s.name+'</div><div class="se">'+s.email+'</div></div>'
-    +'<div class="sm2">'+(s.dept||'—')+'</div>'
-    +'<button class="btn b-v b-sm" data-svid="'+s.id+'" data-svnm="'+s.name+'" style="margin-left:6px;">عرض التقارير 📄</button>'
-    +'</div>'
-  ).join('');
-  el.querySelectorAll('[data-svid]').forEach(b=>b.addEventListener('click',()=>viewStuReports(b.dataset.svid,b.dataset.svnm)));
-}
-function renderFSupFinals(fins){
-  const el=document.getElementById('fs-finals-list');
-  if(!fins.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:20px;">لم تصلك تقارير نهائية بعد</p>';return;}
-  el.innerHTML=fins.map(f=>'<div style="padding:14px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-    +'<div class="sav">'+(f.studentName||'?')[0]+'</div>'
-    +'<div style="flex:1;"><div style="font-weight:700;">'+f.studentName+'</div><div style="font-size:12px;color:var(--m);">'+f.title+'</div></div>'
-    +(f.supervisorFieldEval?'<span class="bx bd">✅ تم التقييم</span>':'<span class="bx bp">بانتظار تقييمك</span>')
-    +'<button class="btn b-p b-sm" data-fevid="'+f.id+'" data-fevsn="'+f.studentName+'">'+( f.supervisorFieldEval?'عرض التقييم':'تقييم الآن 📋')+'</button>'
-    +'</div>'
-  ).join('');
-  el.querySelectorAll('[data-fevid]').forEach(b=>b.addEventListener('click',()=>openFSupEval(b.dataset.fevid,b.dataset.fevsn)));
-}
+/* buildFSup / renderFSupStudents / renderFSupFinals removed — the supervisor role uses s-sup screen and buildSup() */
+
 async function viewStuReports(sid,sname){
   document.getElementById('mr-ti').textContent='تقارير — '+sname;
   document.getElementById('mr-bd').innerHTML='<p style="text-align:center;color:var(--m);">جارٍ التحميل...</p>';
@@ -2854,25 +2861,24 @@ function renderStuInfoCard(){
 async function openFSupEvalForm(){
   document.getElementById('mr-ti').textContent='📋 استمارة تقييم الطلاب';
   document.getElementById('mr-bd').innerHTML='<p style="text-align:center;color:var(--m);">جارٍ تحميل قائمة المتدربين...</p>';
-  document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
+  document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(\'m-rep\')">إغلاق</button>';
   openM('m-rep');
   if(!window.FB?.ready)return;
-  const unsubSnap=window.FB.watchFieldSupStudents(CU.id,sSnap=>{
-    const stus=sSnap.docs.map(d=>({id:d.id,...d.data()}));
-    let html='<div style="margin-bottom:14px;font-size:13px;color:var(--m);">اختر الطالب لتعبئة استمارة التقييم:</div>';
-    stus.forEach(s=>{
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;">'
-        +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
-        +'<div style="flex:1;font-size:13px;font-weight:700;">'+s.name+'</div>'
-        +(s.supervisorEval?'<span class="bx bd">✅ تم التقييم</span>':'')
-        +'<button class="btn b-p b-sm" data-feval-sid="'+s.id+'" data-feval-snm="'+s.name+'">📋 تقييم</button>'
-        +'</div>';
-    });
-    document.getElementById('mr-bd').innerHTML=html;
-    document.querySelectorAll('[data-feval-sid]').forEach(b=>{
-      b.addEventListener('click',()=>{ closeM('m-rep'); openFSupEval(b.dataset.fevalSid,b.dataset.fevalSnm); });
-    });
-    unsubSnap();
+  /* One-time fetch — no persistent listener needed here */
+  const sSnap=await window.FB.getFieldSupStudents(CU.id);
+  const stus=sSnap.docs.map(d=>({id:d.id,...d.data()}));
+  let html='<div style="margin-bottom:14px;font-size:13px;color:var(--m);">اختر الطالب لتعبئة استمارة التقييم:</div>';
+  stus.forEach(s=>{
+    html+='<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;">'
+      +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
+      +'<div style="flex:1;font-size:13px;font-weight:700;">'+s.name+'</div>'
+      +(s.supervisorEval?'<span class="bx bd">✅ تم التقييم</span>':'')
+      +'<button class="btn b-p b-sm" data-feval-sid="'+s.id+'" data-feval-snm="'+s.name+'">📋 تقييم</button>'
+      +'</div>';
+  });
+  document.getElementById('mr-bd').innerHTML=html;
+  document.querySelectorAll('[data-feval-sid]').forEach(b=>{
+    b.addEventListener('click',()=>{ closeM('m-rep'); openFSupEval(b.dataset.fevalSid,b.dataset.fevalSnm); });
   });
 }
 
