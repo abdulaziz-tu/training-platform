@@ -392,14 +392,12 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
             </div>
             <div><div class="fl">عنوان الشركة</div><input class="fi" id="fs-addr" type="text" placeholder="مثال: ينبع الصناعية، مجمع أرامكو"></div>
             <div style="grid-column:1/-1;">
-              <div class="fl">رابط خرائط Google</div>
-              <div style="display:flex;gap:8px;align-items:flex-start;">
-                <input class="fi" id="fs-maps-url" type="text" placeholder="الصق رابط Google Maps هنا..." style="margin:0;flex:1;" oninput="clearTimeout(window._mapsT);window._mapsT=setTimeout(()=>parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status'),700)">
-                <button type="button" class="btn b-p b-sm" onclick="parseMapsUrl('fs-maps-url','fs-lat','fs-lng','fs-maps-status')" style="white-space:nowrap;flex-shrink:0;">استخرج 📍</button>
+              <div class="fl">رابط الموقع على Google Maps</div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input class="fi" id="fs-maps-url" type="text" placeholder="https://maps.app.goo.gl/..." style="margin:0;flex:1;">
+                <button type="button" class="btn b-p b-sm" onclick="openMapsUrl('fs-maps-url')" style="white-space:nowrap;flex-shrink:0;">🗺️ فتح الخريطة</button>
               </div>
-              <div id="fs-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);"></div>
-              <input type="hidden" id="fs-lat"><input type="hidden" id="fs-lng">
-              <div style="font-size:11px;color:var(--m);margin-top:4px;">افتح Google Maps → اضغط على الموقع → انسخ الرابط من شريط العنوان</div>
+              <div style="font-size:11px;color:var(--m);margin-top:4px;">افتح Google Maps → اختر الموقع → اضغط مشاركة → انسخ الرابط</div>
             </div>
           </div>
         </div>
@@ -1828,11 +1826,9 @@ async function createUser(){
       if(!co||!ph){er.textContent='جهة التدريب ورقم الهاتف إلزاميان للمشرف الميداني';btn.disabled=false;btn.textContent='إنشاء الحساب ✅';return;}
       ud.company=co;ud.phone=ph;ud.city=city;
       ud.address=document.getElementById('fs-addr')?.value.trim()||'';
-      const lat=parseFloat(document.getElementById('fs-lat')?.value||'');
-      const lng=parseFloat(document.getElementById('fs-lng')?.value||'');
-      if(lat)ud.lat=lat;if(lng)ud.lng=lng;
+      ud.mapsUrl=document.getElementById('fs-maps-url')?.value.trim()||'';
       // Also save to companies collection
-      if(window.FB?.ready)await window.FB.setCompany(co.replace(/\s+/g,'_'),{name:co,address:ud.address,lat:ud.lat||null,lng:ud.lng||null,city:city});
+      if(window.FB?.ready)await window.FB.setCompany(co.replace(/\s+/g,'_'),{name:co,address:ud.address,mapsUrl:ud.mapsUrl,city:city});
     }
     if(rl==='student'){
       ud.advisorId=document.getElementById('u-adv').value;
@@ -2341,8 +2337,9 @@ function getChatCtx(){
     return [...stuList,...supList];
   }
   if(CR==='supervisor'){
-    // ONLY advisors, NOT students
-    return _allAdvisors.map(a=>({id:a.id,name:a.name,role:'مرشد أكاديمي'}));
+    /* Only show advisors linked to at least one of this supervisor's students */
+    const myAdvIds=new Set(_supStu.map(s=>s.advisorId).filter(Boolean));
+    return _allAdvisors.filter(a=>myAdvIds.has(a.id)).map(a=>({id:a.id,name:a.name,role:'مرشد أكاديمي'}));
   }
   return[];
 }
@@ -2476,78 +2473,6 @@ async function sendBC(){
 
 /* ══════════ INQUIRY BOX ══════════ */
 
-/* ── Google Maps shared location URL resolver ──
-   Handles the "Share" button link format: https://maps.app.goo.gl/XXXX
-   Uses allorigins.win as a CORS proxy to follow the redirect and parse coordinates.
-   Also still works for direct coordinate URLs as a fallback.
-*/
-async function parseMapsUrl(urlInputId,latHiddenId,lngHiddenId,statusId){
-  const raw=(document.getElementById(urlInputId)?.value||'').trim();
-  const status=document.getElementById(statusId);
-  if(!raw){if(status)status.textContent='';return;}
-  if(status){status.style.color='var(--m)';status.textContent='⏳ جارٍ معالجة الرابط...';}
-
-  const setCoords=(lat,lng)=>{
-    document.getElementById(latHiddenId).value=lat;
-    document.getElementById(lngHiddenId).value=lng;
-    if(status){status.style.color='#1B6B35';status.textContent='✅ تم استخراج الإحداثيات: '+lat.toFixed(5)+', '+lng.toFixed(5);}
-  };
-  const setError=(msg)=>{
-    document.getElementById(latHiddenId).value='';
-    document.getElementById(lngHiddenId).value='';
-    if(status){status.style.color='#A32D2D';status.textContent=msg;}
-  };
-
-  /* First try to parse coordinates directly from the URL (non-shortened URLs) */
-  const tryParseDirect=(url)=>{
-    let m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
-    m=url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
-    m=url.match(/query=(-?\d+\.?\d*)(?:,|%2C)(-?\d+\.?\d*)/i);
-    if(m)return{lat:parseFloat(m[1]),lng:parseFloat(m[2])};
-    return null;
-  };
-
-  const direct=tryParseDirect(raw);
-  if(direct&&Math.abs(direct.lat)<=90&&Math.abs(direct.lng)<=180){setCoords(direct.lat,direct.lng);return;}
-
-  /* Shortened URL (maps.app.goo.gl or goo.gl) — resolve via CORS proxy */
-  try{
-    /* allorigins returns JSON: { contents: "html...", status: { http_code, url } }
-       When it follows a redirect, the final HTML is returned.
-       Google Maps HTML contains the coordinates in several places we can parse. */
-    const proxyUrl='https://api.allorigins.win/get?url='+encodeURIComponent(raw);
-    const resp=await fetch(proxyUrl,{signal:AbortSignal.timeout(10000)});
-    if(!resp.ok)throw new Error('proxy error '+resp.status);
-    const json=await resp.json();
-
-    /* The proxy returns the final URL in status.url — try parsing that first */
-    const finalUrl=json?.status?.url||'';
-    const fromUrl=tryParseDirect(finalUrl)||tryParseDirect(decodeURIComponent(finalUrl));
-    if(fromUrl&&Math.abs(fromUrl.lat)<=90&&Math.abs(fromUrl.lng)<=180){setCoords(fromUrl.lat,fromUrl.lng);return;}
-
-    /* Fall back to scanning the HTML content for coordinate patterns */
-    const html=json?.contents||'';
-    /* Pattern: @lat,lng inside HTML */
-    let m=html.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if(!m)m=html.match(/"lat"\s*:\s*(-?\d+\.?\d+)\s*,\s*"lng"\s*:\s*(-?\d+\.?\d+)/);
-    if(!m)m=html.match(/ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
-    if(!m)m=html.match(/center=(-?\d+\.?\d+)%2C(-?\d+\.?\d+)/i);
-    /* Pattern inside JSON-LD or og:url */
-    if(!m){const ogMatch=html.match(/og:url.*?content="([^"]+)"/);if(ogMatch)m=ogMatch[1].match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);}
-    if(m){
-      const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
-      if(Math.abs(lat)<=90&&Math.abs(lng)<=180){setCoords(lat,lng);return;}
-    }
-    setError('❌ لم يتم التعرف على الإحداثيات — جرب فتح الخريطة ← مشاركة ← نسخ الرابط');
-  }catch(e){
-    if(e.name==='TimeoutError')setError('❌ انتهت مهلة الاتصال — تحقق من الإنترنت وأعد المحاولة');
-    else setError('❌ فشل تحليل الرابط: '+e.message);
-  }
-}
-
-
 
 function autoFillCompany(val){
   const dl=document.getElementById('comp-datalist');
@@ -2557,20 +2482,11 @@ function autoFillCompany(val){
   const existing=_allFieldSups.find(f=>f.company===val);
   if(existing){
     const addrEl=document.getElementById('fs-addr');
-    const latEl=document.getElementById('fs-lat');
-    const lngEl=document.getElementById('fs-lng');
     const cityEl=document.getElementById('fs-city');
-    const statusEl=document.getElementById('fs-maps-status');
-    const urlEl=document.getElementById('fs-maps-url');
+    const mapsEl=document.getElementById('fs-maps-url');
     if(addrEl&&existing.address)addrEl.value=existing.address;
-    if(latEl&&existing.lat)latEl.value=existing.lat;
-    if(lngEl&&existing.lng)lngEl.value=existing.lng;
     if(cityEl&&existing.city)cityEl.value=existing.city;
-    /* Rebuild the maps URL from existing coords so user can see/edit it */
-    if(existing.lat&&existing.lng){
-      if(urlEl)urlEl.value='https://maps.google.com/?q='+existing.lat+','+existing.lng;
-      if(statusEl){statusEl.style.color='#1B6B35';statusEl.textContent='✅ إحداثيات محفوظة: '+Number(existing.lat).toFixed(5)+', '+Number(existing.lng).toFixed(5);}
-    }
+    if(mapsEl&&existing.mapsUrl)mapsEl.value=existing.mapsUrl;
   }
 }
 
@@ -2807,18 +2723,13 @@ function openEditCompany(co){
     +'<option value="المدينة المنورة"'+(existingFS?.city==='المدينة المنورة'?' selected':'')+'>المدينة المنورة</option>'
     +'</select>'
     +'<div class="fl">العنوان</div><input class="fi" id="eco-addr" type="text" value="'+(existingFS?.address||'')+'">'
-    +'<div class="fl">رابط خرائط Google</div>'
-    +'<div style="display:flex;gap:8px;align-items:flex-start;">'
-    +'<input class="fi" id="eco-maps-url" type="text" placeholder="الصق رابط Google Maps..." style="margin:0;flex:1;" '
-    +'value="'+(existingFS?.lat&&existingFS?.lng?'https://maps.google.com/?q='+existingFS.lat+','+existingFS.lng:'')+'" '
-    +'oninput="clearTimeout(window._mapsT);window._mapsT=setTimeout(()=>parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\'),700)">'
-    +'<button type="button" class="btn b-p b-sm" onclick="parseMapsUrl(\'eco-maps-url\',\'eco-lat\',\'eco-lng\',\'eco-maps-status\')" style="flex-shrink:0;">استخرج 📍</button>'
+    +'<div class="fl">رابط الموقع على Google Maps</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;">'
+    +'<input class="fi" id="eco-maps-url" type="text" placeholder="https://maps.app.goo.gl/..." style="margin:0;flex:1;" '
+    +'value="'+(existingFS?.mapsUrl||'')+'">'
+    +'<button type="button" class="btn b-p b-sm" onclick="openMapsUrl(\'eco-maps-url\')" style="flex-shrink:0;">🗺️ فتح الخريطة</button>'
     +'</div>'
-    +'<div id="eco-maps-status" style="font-size:12px;margin-top:4px;color:var(--m);">'
-    +(existingFS?.lat&&existingFS?.lng?'✅ إحداثيات محفوظة: '+existingFS.lat.toFixed(4)+', '+existingFS.lng.toFixed(4):'')
-    +'</div>'
-    +'<input type="hidden" id="eco-lat" value="'+(existingFS?.lat||'')+'">'
-    +'<input type="hidden" id="eco-lng" value="'+(existingFS?.lng||'')+'">'
+    +'<div style="font-size:11px;color:var(--m);margin-top:4px;">افتح Google Maps → اختر الموقع → مشاركة → انسخ الرابط</div>'
     +'<div class="etxt" id="eco-er"></div>';
   document.getElementById('mr-ft').innerHTML=''
     +'<button class="btn b-p" id="eco-sv-btn">حفظ ✅</button>'
@@ -2829,28 +2740,33 @@ function openEditCompany(co){
 async function saveEditCompany(oldName){
   const newName=document.getElementById('eco-nm')?.value.trim();
   const addr=document.getElementById('eco-addr')?.value.trim()||'';
-  const lat=parseFloat(document.getElementById('eco-lat')?.value||'');
-  const lng=parseFloat(document.getElementById('eco-lng')?.value||'');
+  const mapsUrl=document.getElementById('eco-maps-url')?.value.trim()||'';
   const city=document.getElementById('eco-city')?.value||'';
   if(!newName){document.getElementById('eco-er').textContent='الاسم إلزامي';return;}
   if(!window.FB?.ready)return;
   const toUpdate=_allFieldSups.filter(f=>f.company===oldName);
   for(const fs of toUpdate){
-    const upd={company:newName,address:addr};
+    const upd={company:newName,address:addr,mapsUrl};
     if(city)upd.city=city;
-    if(!isNaN(lat))upd.lat=lat;if(!isNaN(lng))upd.lng=lng;
     await window.FB.updateUser(fs.id,upd);
   }
-  if(oldName!==newName)await window.FB.setCompany(newName.replace(/\s+/g,'_'),{name:newName,address:addr,lat:isNaN(lat)?null:lat,lng:isNaN(lng)?null:lng,city:city||null});
+  if(oldName!==newName)await window.FB.setCompany(newName.replace(/\s+/g,'_'),{name:newName,address:addr,mapsUrl,city:city||null});
   closeM('m-rep');
   toast('✅ تم تحديث بيانات جهة التدريب: '+newName);
   openCompanies();
 }
 
+/* Opens a stored Google Maps URL from an input field, or falls back to company name search */
+function openMapsUrl(inputId){
+  const url=(document.getElementById(inputId)?.value||'').trim();
+  if(url)window.open(url,'_blank');
+  else toast('لم يتم إدخال رابط الخريطة بعد');
+}
+
 function openMaps(company){
   const fs=_allFieldSups.find(f=>f.company===company);
-  const lat=fs?.lat,lng=fs?.lng;
-  const url=lat&&lng?'https://www.google.com/maps?q='+lat+','+lng:'https://www.google.com/maps/search/'+encodeURIComponent(company);
+  /* Use stored mapsUrl if available, otherwise fall back to name search */
+  const url=fs?.mapsUrl||('https://www.google.com/maps/search/'+encodeURIComponent(company));
   window.open(url,'_blank');
 }
 function selectCompany(co){
