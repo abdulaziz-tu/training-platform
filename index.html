@@ -668,7 +668,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div id="stu-info-card" class="card" style="margin-bottom:20px;"></div>
     <div id="stu-final-bar" class="fb">
       <div class="fbi"><div class="fbic">📋</div>
-        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي لمشرف التدريب</p></div>
+        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي للمرشد الأكاديمي</p></div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span class="fsb fs0" id="st-fs">لم يُرسَل بعد</span>
@@ -1058,7 +1058,7 @@ function updStuFinal(data){
   // Show decline comments
   if((s==='supervisor_declined'||s==='advisor_declined')&&data?.declineComment){
     if(desc)desc.textContent=`تعليق: ${data.declineComment}`;
-  } else {if(desc)desc.textContent='أرسل تقريرك النهائي لمشرف التدريب';}
+  } else {if(desc)desc.textContent='أرسل تقريرك النهائي للمرشد الأكاديمي';}
 }
 
 
@@ -1126,7 +1126,7 @@ async function submitStuRep(r){
 
 function openStuFinal(){
   document.getElementById('mf-bd').innerHTML=`
-    <p style="font-size:14px;color:var(--m);margin-bottom:18px;">أرسل تقريرك النهائي لمشرف التدريب ليراجعه ثم يحيله للمرشد الأكاديمي.</p>
+    <p style="font-size:14px;color:var(--m);margin-bottom:18px;">أرسل تقريرك النهائي مباشرةً للمرشد الأكاديمي للمراجعة والاعتماد.</p>
     <div class="fl">عنوان التقرير *</div><input class="fi" id="fin-t" type="text" placeholder="عنوان محدد يعكس موضوع التقرير">
     <div class="fl">المستخلص *</div><textarea class="fi" id="fin-a" rows="4" placeholder="ملخص يشمل الأهداف والنتائج والتوصيات..."></textarea>
     <div class="fl">ملف التقرير (PDF/Word) <span style="color:#D94040;">*</span> إلزامي</div>
@@ -1151,7 +1151,7 @@ function openStuFinal(){
       <div id="fin-fn3" style="color:var(--green);font-weight:600;margin-top:4px;font-size:12px;"></div>
     </div>
     <div class="etxt" id="fin-er"></div>`;
-  document.getElementById('mf-ft').innerHTML=`<button class="btn b-p" onclick="submitStuFinal()">إرسال لمشرف التدريب 📤</button><button class="btn" style="background:#EEE;color:#555;" onclick="closeM('m-fin')">إلغاء</button>`;
+  document.getElementById('mf-ft').innerHTML=`<button class="btn b-p" onclick="submitStuFinal()">إرسال للمرشد الأكاديمي 📤</button><button class="btn" style="background:#EEE;color:#555;" onclick="closeM('m-fin')">إلغاء</button>`;
   openM('m-fin');
 }
 
@@ -1227,7 +1227,7 @@ async function submitStuFinal(){
       submittedAt:new Date().toISOString()
     });
   }
-  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي لمشرف التدريب');
+  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي للمرشد الأكاديمي');
 }
 
 /* ─────────────── ADVISOR ─────────────── */
