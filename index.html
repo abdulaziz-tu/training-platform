@@ -2338,26 +2338,23 @@ async function renderAdvRqList(){
       .filter(d=>d.id.startsWith('eval_'))
       .forEach(d=>{const data=d.data();if(data.studentId)evalMap[data.studentId]=data;});
   }
-  /* Three states per student:
-       isRated      → supervisorEval exists on student doc (set by submitFSupEval)
-       isRequested  → evalRequested flag on student doc (set by notifyFSup)
-       neither      → show "طلب تقييم" button */
+  /* Truth source: the eval_ doc in fieldEvals.
+     s.supervisorEval is a cached/denormalised field that can be stale or incorrectly set.
+     We only show "عرض التقييم" when the actual eval doc exists in the collection. */
   const sorted=[..._advStu].sort((a,b)=>{
-    const rank=s=>s.supervisorEval?2:s.evalRequested?1:0;
+    const ev_a=evalMap[a.id];const ev_b=evalMap[b.id];
+    const rank=s=>(evalMap[s.id])?2:(s.evalRequested?1:0);
     return rank(b)-rank(a);
   });
   el.innerHTML=sorted.map(s=>{
     const supId=s.supervisorId||s.supervisorId2;
     const sup=_allSupervisors.find(x=>x.id===supId)||_allFieldSups.find(x=>x.id===supId);
-    const isRated=!!(s.supervisorEval);
-    const isRequested=!!(s.evalRequested);
-    const ev=evalMap[s.id];
+    const ev=evalMap[s.id];           // truth source: actual eval doc
+    const isRated=!!(ev);             // rated ⟺ eval doc exists
+    const isRequested=!!(s.evalRequested)&&!isRated; // requested but not yet rated
     let actionBtn;
-    if(isRated&&ev){
+    if(isRated){
       actionBtn='<button class="btn b-a b-sm" data-view-ev="'+s.id+'">عرض التقييم 📋</button>';
-    } else if(isRated&&!ev){
-      /* supervisorEval on student doc but full eval doc not found yet (race) — show view disabled */
-      actionBtn='<button class="btn b-a b-sm" disabled>عرض التقييم 📋</button>';
     } else if(isRequested){
       actionBtn='<button class="btn b-sm" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;" disabled>⏳ تم إرسال الطلب</button>';
     } else {
@@ -2966,14 +2963,12 @@ async function selectFSup(fsid){
       .filter(d=>d.id.startsWith('eval_'))
       .forEach(d=>{const dt=d.data();if(dt.studentId)evalMap[dt.studentId]=dt;});
     el.innerHTML=stus.map(s=>{
-      const isRated=!!(s.supervisorEval);
-      const isRequested=!!(s.evalRequested);
-      const ev=evalMap[s.id];
+      const ev=evalMap[s.id];           // truth source: actual eval_ doc
+      const isRated=!!(ev);             // rated ⟺ eval doc exists
+      const isRequested=!!(s.evalRequested)&&!isRated;
       let btn;
-      if(isRated&&ev){
+      if(isRated){
         btn='<button class="btn b-v b-sm" data-view-ev-sid="'+s.id+'">عرض التقييم 📋</button>';
-      } else if(isRated&&!ev){
-        btn='<button class="btn b-v b-sm" disabled>عرض التقييم 📋</button>';
       } else if(isRequested){
         btn='<button class="btn b-sm" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;" disabled>⏳ تم إرسال الطلب</button>';
       } else {
