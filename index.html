@@ -124,7 +124,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t);min-he
 .em{color:#D94040;font-size:12.5px;text-align:center;margin-top:10px;min-height:18px;}
 /* DASHBOARD */
 .ds{flex-direction:column;background:#F2F0FA;min-height:100vh;}
-.dt{background:#fff;border-bottom:1px solid var(--b);padding:0 32px;height:66px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(107,77,196,.07);}
+.dt{background:#fff;border-bottom:1px solid var(--b);padding:0 32px;height:66px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(107,77,196,.07);flex-wrap:wrap;gap:8px;}
 .dtr{display:flex;align-items:center;gap:14px;}
 .da{width:40px;height:40px;background:var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0;}
 .dtt h2{font-size:15px;font-weight:700;}.dtt span{font-size:12.5px;color:var(--m);}
@@ -199,7 +199,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .notif-ban{background:#FFF3CD;border:1.5px solid #FFE082;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;}
 .notif-ban .ni{font-size:26px;}.notif-ban .nt{font-size:13px;font-weight:600;color:#856404;}
 /* MODAL */
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;transition:opacity .2s;}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;transition:opacity .2s;overflow-y:auto;}
 .mo.open{display:flex;}
 .mb{background:#fff;border-radius:20px;width:100%;max-width:720px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:su .3s ease;}
 .mh{padding:18px 24px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -271,7 +271,126 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 .sp{width:40px;height:40px;border:4px solid var(--b);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 #tst{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#2C3E50;color:#fff;padding:11px 24px;border-radius:50px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
-@media(max-width:700px){.sg{grid-template-columns:repeat(2,1fr);}.db{padding:16px;}.dt{padding:0 14px;}.roles{padding:40px 16px;gap:16px;}.rc{width:150px;height:150px;}.ri{font-size:34px;}.lc{padding:36px 24px 40px;margin:16px;}.fg2,.rig,.eg{grid-template-columns:1fr;}.clst{width:160px;}}
+/* ═══════════════ RESPONSIVE / MOBILE ═══════════════ */
+
+/* Tablet: 481px – 768px */
+@media(max-width:768px){
+  .sg{grid-template-columns:repeat(2,1fr);}
+  .db{padding:16px;}
+  .dt{padding:0 12px;height:auto;min-height:56px;flex-wrap:wrap;gap:6px;padding-top:8px;padding-bottom:8px;}
+  .dta{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding-bottom:6px;}
+  .bt{font-size:12px;padding:6px 10px;}
+  .roles{padding:32px 16px;gap:16px;}
+  .rc{width:160px;height:160px;}
+  .ri{font-size:36px;}
+  .lc{padding:32px 20px 36px;margin:12px;}
+  .fg2,.rig,.eg{grid-template-columns:1fr;}
+  /* Chat modal on tablet */
+  .cw{height:420px;}
+  .clst{width:200px;}
+  /* Modal sizing */
+  .mb{max-width:calc(100vw - 24px) !important;max-height:92vh;}
+  /* Inquiry sidebar */
+  #m-inq .mbd{flex-direction:column;min-height:auto;}
+  #m-inq .mbd > div:first-child{width:100%;border-left:none;border-bottom:1px solid var(--b);flex-direction:row;flex-wrap:wrap;gap:4px;padding:8px;overflow-y:visible;max-height:none;display:flex;}
+  .inq-nav{display:inline-block;width:auto;padding:6px 10px;border-radius:8px;border-right:none;font-size:12px;}
+  .inq-nav.active{border-right:none;background:var(--p);color:#fff;}
+  #inq-results{min-height:200px;}
+  /* Companies modal */
+  #m-comp .mbd{flex-direction:column;}
+}
+
+/* Mobile: ≤480px */
+@media(max-width:480px){
+  .hdr h1{font-size:18px;padding:0 12px;}
+  .roles{padding:24px 10px;gap:12px;}
+  .rc{width:140px;height:140px;border-radius:16px;}
+  .ri{font-size:30px;}
+  .rl{font-size:14px;}
+
+  .dt{padding:8px 10px;gap:4px;}
+  .dtr{gap:8px;}
+  .da{width:34px;height:34px;font-size:13px;}
+  .dtt h2{font-size:13px;}.dtt span{font-size:11px;}
+  /* Toolbar: stack buttons below title */
+  .dta{gap:5px;}
+  .bt{font-size:11px;padding:5px 8px;gap:4px;}
+
+  .db{padding:10px;}
+  .sg{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  .sc{padding:14px;}
+  .sv2{font-size:24px;}
+  .sl2{font-size:12px;}
+
+  .card{padding:16px;border-radius:12px;}
+
+  /* Tables: shrink text, keep scroll */
+  .tw{border-radius:8px;}
+  table{font-size:12px;}
+  thead th{padding:10px 10px;font-size:11px;}
+  tbody td{padding:8px 10px;}
+
+  /* Login card */
+  .lc{padding:28px 16px 32px;margin:10px;border-radius:18px;}
+  .llo{width:58px;height:58px;font-size:26px;}
+  .lt h1{font-size:18px;}
+
+  /* Modals */
+  .mo{padding:10px;}
+  .mb{border-radius:14px;max-height:94vh;}
+  .mh{padding:14px 16px;}
+  .mti{font-size:14px;}
+  .mbd{padding:16px;}
+  .mft{padding:12px 16px;flex-wrap:wrap;gap:8px;}
+  .mft .btn{flex:1;min-width:120px;}
+
+  /* Chat: stack sidebar above messages on small screens */
+  .cw{flex-direction:column;height:auto;}
+  #m-chat .mb{max-height:90vh;}
+  .clst{width:100%;height:120px;border-left:none;border-bottom:1px solid var(--b);overflow-x:auto;overflow-y:hidden;display:flex;flex-direction:row;}
+  .ci{min-width:130px;border-right:1px solid var(--b);border-bottom:none;}
+  .carea{flex:1;min-height:0;}
+  .cms{height:220px;}
+  .cir{padding:8px 10px;gap:6px;}
+  .cinp{font-size:13px;}
+  .csnd{padding:7px 12px;font-size:13px;}
+
+  /* Eval form grid */
+  .fg2{grid-template-columns:1fr;}
+  .rig{grid-template-columns:1fr 1fr;}
+  .eg{grid-template-columns:1fr;}
+
+  /* Final bar: stack */
+  .fb{flex-direction:column;align-items:flex-start;padding:16px;}
+
+  /* Info card: stack */
+  #stu-info-card > div{grid-template-columns:1fr !important;}
+
+  /* Buttons in rows */
+  .btn.b-sm{font-size:11px;padding:4px 8px;}
+
+  /* Notifications */
+  .notif-ban{padding:12px 14px;gap:10px;}
+  .notif-ban .ni{font-size:20px;}
+  .notif-ban .nt{font-size:12px;}
+
+  /* User rows */
+  .ur{padding:10px;}
+  .sr{gap:10px;padding:10px 6px;}
+
+  /* Companies / inquiry modals: stack sidebar */
+  #m-comp .mbd,#m-inq .mbd{flex-direction:column;}
+  #m-inq .mbd > div:first-child{width:100%;border-left:none;border-bottom:1px solid var(--b);flex-direction:row;flex-wrap:wrap;gap:4px;padding:8px;overflow-y:visible;max-height:160px;overflow-x:auto;display:flex;}
+  .inq-nav{display:inline-block;width:auto;padding:5px 8px;border-radius:8px;border-right:none;font-size:11px;white-space:nowrap;}
+  .inq-nav.active{border-right:none;background:var(--p);color:#fff;}
+  #inq-results{padding:12px;}
+
+  /* ndc (next report card) */
+  .ndc{padding:16px 18px;gap:12px;}
+
+  /* Tabs */
+  .tab{padding:10px 14px;font-size:13px;}
+}
 </style>
 </head>
 <body>
@@ -524,7 +643,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
 
 <!-- ══ SCREEN: LOGIN ══ -->
 <div id="sl" class="screen">
-  <button class="lbk" onclick="show('sr')">&#8594; رجوع</button>
+  <button class="lbk" onclick="show('sr')">&#8592; رجوع</button>
   <div class="lc">
     <div class="llo">🎓</div>
     <div class="lt"><h1>منصة التدريب الميداني</h1><p id="l-sub">تسجيل الدخول</p></div>
@@ -549,7 +668,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div id="stu-info-card" class="card" style="margin-bottom:20px;"></div>
     <div id="stu-final-bar" class="fb">
       <div class="fbi"><div class="fbic">📋</div>
-        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي للمرشد الأكاديمي</p></div>
+        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي لمشرف التدريب</p></div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span class="fsb fs0" id="st-fs">لم يُرسَل بعد</span>
@@ -575,6 +694,13 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
         <thead><tr><th>التقرير</th><th>تاريخ الإتاحة</th><th>الحالة</th><th>اعتماد المشرف</th><th>تقييم المرشد</th><th>إجراء</th></tr></thead>
         <tbody id="st-tb"></tbody>
       </table></div>
+    </div>
+    <!-- Student program evaluation card (shown after all reports are completed) -->
+    <div class="card" id="stu-prog-eval-card" style="display:none;">
+      <div class="ch"><div class="ct">📋 تقييم برنامج التدريب الميداني</div></div>
+      <p style="font-size:13px;color:var(--m);margin-bottom:16px;">بعد إتمام جميع تقاريرك، يرجى تعبئة استمارة تقييم البرنامج التدريبي.</p>
+      <div id="stu-prog-eval-content"></div>
+      <div id="stu-prog-eval-footer" style="margin-top:14px;"></div>
     </div>
   </div>
 </div>
@@ -644,7 +770,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div class="sc cl" id="sup-ac" onclick="togAdvPan()"><div class="st2"><div class="sl2">التواصل مع المرشدين</div><div class="si2" style="background:#EDE8F8;">💬</div></div><div style="font-size:13px;color:var(--p);font-weight:700;">اضغط للعرض</div></div>
     </div>
     <div class="card" id="adv-pan" style="display:none;">
-      <div class="ch"><div class="ct">المرشدين الأكاديميين</div><button class="tb" onclick="togAdvPan()">−</button></div>
+      <div class="ch"><div class="ct">المرشدون الأكاديميون</div><button class="tb" onclick="togAdvPan()">−</button></div>
       <div id="adv-cl"></div>
     </div>
 
@@ -712,7 +838,7 @@ function closeM(id){
   el.classList.remove('open');
   el.style.zIndex='';
 }
-document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m){m.classList.remove('open');m.style.zIndex=''}}));
 function setEl(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function ld(on){document.getElementById('lov').classList.toggle('on',on);}
 function toast(msg){const t=document.getElementById('tst');t.textContent=msg;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',3600);}
@@ -810,7 +936,7 @@ function toggleCardContent(contentId,btnId){
   if(btn)btn.textContent=isOpen?'+':'−';
 }
 
-function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];_selCompany=null;_selFSup=null;_chatFilter='all';show('sr');}
+function doLogout(){if(window.FB?.ready)window.FB.logout();CU=null;CR=null;unsub();if(_chatUnsub){try{_chatUnsub();}catch(e){}}_chatUnsub=null;if(_companiesUnsub){try{_companiesUnsub();}catch(e){}}_companiesUnsub=null;_advStu=[];_supStu=[];_advSel=null;_supSel=null;_unreadConvs=new Set();_allAdvisors=[];_allSupervisors=[];_allFieldSups=[];_selCompany=null;_selFSup=null;_chatFilter='all';_cityFilter='all';show('sr');}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('sl').classList.contains('active'))doLogin();});
 
 /* ══════════ BUILD DASHBOARDS ══════════ */
@@ -866,6 +992,9 @@ function renderStuReps(reps){
   // When student completes all reports → send notification to supervisor to fill program eval
   if(reps.length>0&&dn===reps.length){
     notifySupForProgEval();
+    // Show the student program eval card
+    const evalCard=document.getElementById('stu-prog-eval-card');
+    if(evalCard){evalCard.style.display='block';openStuProgEval();}
   }
   // Next available unlocked
   const nx=reps.find(r=>r.status!=='مكتمل'&&isAvailable(CU.trainingStartDate,r.weekNum));
@@ -912,7 +1041,7 @@ function renderStuReps(reps){
 }
 
 function updStuFinal(data){
-  const lbl={none:'لم يُرسَل بعد',pending_advisor:'بانتظار المرشد الأكاديمي',supervisor_declined:'مرفوض من المرشد — أعد الإرسال',advisor_declined:'مرفوض من المرشد — أعد الإرسال',approved:'✅ معتمد نهائياً'};
+  const lbl={none:'لم يُرسَل بعد',pending_advisor:'بانتظار المرشد الأكاديمي',supervisor_declined:'مرفوض من المشرف — أعد الإرسال',advisor_declined:'مرفوض من المرشد — أعد الإرسال',approved:'✅ معتمد نهائياً'};
   const cls={none:'fs0',pending_advisor:'fs1',supervisor_declined:'fs4',advisor_declined:'fs4',approved:'fs3'};
   const s=data?.status||'none';
   const el=document.getElementById('st-fs');
@@ -929,7 +1058,7 @@ function updStuFinal(data){
   // Show decline comments
   if((s==='supervisor_declined'||s==='advisor_declined')&&data?.declineComment){
     if(desc)desc.textContent=`تعليق: ${data.declineComment}`;
-  } else {if(desc)desc.textContent='أرسل تقريرك النهائي للمرشد الاكاديمي';}
+  } else {if(desc)desc.textContent='أرسل تقريرك النهائي لمشرف التدريب';}
 }
 
 
@@ -1063,11 +1192,11 @@ async function submitStuProgEval(){
 async function submitStuFinal(){
   const title=document.getElementById('fin-t')?.value.trim(),abs=document.getElementById('fin-a')?.value.trim();
   const fileInp=document.getElementById('fin-f');const file=fileInp?.files[0];
-  const file2Inp=document.getElementById('fin-f2');const file2=file2Inp?.files[0];
+  const file2Inp=document.getElementById('fin-f2');const _file2Check=file2Inp?.files[0];
   const er=document.getElementById('fin-er');
   if(!title||!abs){er.textContent='يرجى ملء العنوان والمستخلص';return;}
   if(!file){er.textContent='ملف التقرير إلزامي';return;}
-  if(!file2){er.textContent='ملف استبيان الجهة إلزامي';return;}
+  if(!_file2Check){er.textContent='ملف استبيان الجهة إلزامي';return;}
   er.textContent='';
   let fileData={name:'',size:0,type:''};
   if(file){
@@ -1086,19 +1215,19 @@ async function submitStuFinal(){
       const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result.split(',')[1]);fr.onerror=rej;fr.readAsDataURL(f);});
       return{name:f.name,size:f.size,type:f.type,base64:b64};
     }
-    const file2=await readFile(document.getElementById('fin-f2'));
+    const file2Data=await readFile(document.getElementById('fin-f2'));
     const file3=await readFile(document.getElementById('fin-f3'));
     await window.FB.setFinal(CU.id,{
       studentId:CU.id,studentName:CU.name,
       advisorId:CU.advisorId||'',
       supervisorId:CU.supervisorId||'',
       title,abstract:abs,file:fileData,
-      file2:file2||null,file3:file3||null,
+      file2:file2Data||null,file3:file3||null,
       status:'pending_advisor',declineComment:'',
       submittedAt:new Date().toISOString()
     });
   }
-  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي للمرشد الأكاديمي');
+  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي لمشرف التدريب');
 }
 
 /* ─────────────── ADVISOR ─────────────── */
@@ -1162,7 +1291,6 @@ function advSel(sid){
       renderAdvDet(s,reps);
       // Update stats
       let tot=0,dn=0;
-      _advStu.forEach(()=>{});
       const allReps=reps;
       tot=allReps.length;dn=allReps.filter(r=>r.status==='مكتمل').length;
       setEl('adv-tot',allReps.length);setEl('adv-dn',dn);setEl('adv-rt',tot?Math.round(dn/tot*100)+'%':'0%');
@@ -2045,13 +2173,15 @@ function progEvalFormHTML(uid,readonly,saved){
   const opts=['أوافق','صحيح لحد ما','لا أوافق'];
   let rows=PROG_EVAL_ITEMS.map((cr,i)=>{
     const sv=saved?.ratings?.[i];
+    const svRating=typeof sv==='object'&&sv!==null?sv.rating:sv;
+    const svNote=typeof sv==='object'&&sv!==null?sv.note||'':'';
     let cells=opts.map(o=>{
-      const chk=sv===o?'checked':'';
+      const chk=svRating===o?'checked':'';
       return '<td style="text-align:center;padding:6px;">'+(readonly
         ?'<span style="color:'+(chk?'var(--p)':'#ccc')+';font-size:16px;">'+(chk?'✔':'○')+'</span>'
         :'<label style="cursor:pointer;"><input type="radio" name="pe-'+uid+'-'+i+'" value="'+o+'" '+chk+'></label>')+'</td>';
     }).join('');
-    const note=readonly?(sv?.note||''):'<input class="fi" style="margin:0;padding:4px 8px;font-size:12px;" id="pn-'+uid+'-'+i+'" value="'+(sv?.note||'')+'" placeholder="ملاحظة">';
+    const note=readonly?svNote:'<input class="fi" style="margin:0;padding:4px 8px;font-size:12px;" id="pn-'+uid+'-'+i+'" value="'+(svNote)+'" placeholder="ملاحظة">';
     return '<tr><td style="font-size:13px;padding:10px 14px;font-weight:600;">'+cr+'</td>'+cells+'<td style="padding:6px;">'+note+'</td></tr>';
   }).join('');
   return '<div style="background:#2C3E50;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:14px;text-align:center;">'
