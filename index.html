@@ -2329,39 +2329,62 @@ async function renderAdvRqList(){
   const el=document.getElementById('adv-rq-list');
   if(!el)return;
   if(!_advStu.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب مسجّلون بعد</p>';return;}
+  /* Build evalMap ONLY from real student-rating docs (prefix eval_).
+     progeval_ and lastRepEval_ docs must NOT count as "the student was rated". */
   let evalMap={};
   if(window.FB?.ready){
     const evSnap=await window.FB.getAllFieldEvals();
-    evSnap.docs.forEach(d=>{const data=d.data();if(data.studentId)evalMap[data.studentId]=data;});
+    evSnap.docs
+      .filter(d=>d.id.startsWith('eval_'))
+      .forEach(d=>{const data=d.data();if(data.studentId)evalMap[data.studentId]=data;});
   }
-  // Sort: rated first, then unrated
-  const sorted=[..._advStu].sort((a,b)=>(evalMap[b.id]?1:0)-(evalMap[a.id]?1:0));
+  /* Three states per student:
+       isRated      → supervisorEval exists on student doc (set by submitFSupEval)
+       isRequested  → evalRequested flag on student doc (set by notifyFSup)
+       neither      → show "طلب تقييم" button */
+  const sorted=[..._advStu].sort((a,b)=>{
+    const rank=s=>s.supervisorEval?2:s.evalRequested?1:0;
+    return rank(b)-rank(a);
+  });
   el.innerHTML=sorted.map(s=>{
     const supId=s.supervisorId||s.supervisorId2;
     const sup=_allSupervisors.find(x=>x.id===supId)||_allFieldSups.find(x=>x.id===supId);
+    const isRated=!!(s.supervisorEval);
+    const isRequested=!!(s.evalRequested);
     const ev=evalMap[s.id];
+    let actionBtn;
+    if(isRated&&ev){
+      actionBtn='<button class="btn b-a b-sm" data-view-ev="'+s.id+'">عرض التقييم 📋</button>';
+    } else if(isRated&&!ev){
+      /* supervisorEval on student doc but full eval doc not found yet (race) — show view disabled */
+      actionBtn='<button class="btn b-a b-sm" disabled>عرض التقييم 📋</button>';
+    } else if(isRequested){
+      actionBtn='<button class="btn b-sm" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;" disabled>⏳ تم إرسال الطلب</button>';
+    } else {
+      actionBtn=supId
+        ?'<button class="btn b-p b-sm" data-rq-sid="'+s.id+'" data-rq-snm="'+s.name+'" data-rq-fid="'+supId+'" data-rq-fnm="'+(sup?.name||'')+'">⭐ طلب تقييم</button>'
+        :'<span style="font-size:12px;color:#D94040;">لا يوجد مشرف تدريب</span>';
+    }
     return '<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;background:#F9F7FF;border:1px solid var(--b);margin-bottom:8px;flex-wrap:wrap;">'
       +'<div style="position:relative;"><div class="sav">'+(s.name||'?')[0]+'</div>'
-      +(ev?'<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#27AE60;border-radius:50%;border:2px solid #fff;"></div>':'')
+      +(isRated?'<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:#27AE60;border-radius:50%;border:2px solid #fff;"></div>':'')
       +'</div>'
       +'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">'+s.name+'</div>'
       +'<div style="font-size:12px;color:var(--m);">مشرف التدريب: '+(sup?.name||'غير محدد')+'</div></div>'
-      +(ev
-        ?'<button class="btn b-a b-sm" data-view-ev="'+s.id+'">عرض التقييم 📋</button>'
-        :(supId?'<button class="btn b-p b-sm" data-rq-sid="'+s.id+'" data-rq-snm="'+s.name+'" data-rq-fid="'+supId+'" data-rq-fnm="'+(sup?.name||'')+'">⭐ طلب تقييم</button>'
-          :'<span style="font-size:12px;color:#D94040;">لا يوجد مشرف تدريب</span>'))
+      +actionBtn
       +'</div>';
   }).join('');
   el.querySelectorAll('[data-rq-sid]').forEach(b=>{
     b.addEventListener('click',async()=>{
+      b.disabled=true;b.textContent='...';
       await notifyFSup(b.dataset.rqFid,b.dataset.rqSid,b.dataset.rqSnm,b.dataset.rqFnm);
-      b.disabled=true;b.textContent='✅ أُرسل الطلب';
+      b.textContent='⏳ تم إرسال الطلب';
     });
   });
   el.querySelectorAll('[data-view-ev]').forEach(b=>{
     b.addEventListener('click',()=>{
       const sid=b.dataset.viewEv;const ev2=evalMap[sid];
-      if(!ev2)return;
+      if(!ev2){toast('لم يتم العثور على بيانات التقييم');return;}
       document.getElementById('mr-ti').textContent='تقييم — '+(sorted.find(s=>s.id===sid)?.name||'');
       document.getElementById('mr-bd').innerHTML=stuEvalFormHTML(sid,true,ev2);
       document.getElementById('mr-ft').innerHTML='<button class="btn" style="background:#EEE;color:#555;" onclick="closeM(&apos;m-rep&apos;)">إغلاق</button>';
@@ -2936,21 +2959,37 @@ async function selectFSup(fsid){
       : allStus;
     const fs=_allFieldSups.find(f=>f.id===fsid);
     if(!stus.length){el.innerHTML='<p style="color:var(--m);text-align:center;padding:16px;">لا يوجد طلاب</p>';return;}
-    /* Build map: studentId → eval data */
+    /* Build evalMap ONLY from real student-rating docs (prefix eval_).
+       progeval_ and lastRepEval_ must NOT be counted as a student rating. */
     const evalMap={};
-    evalSnap.docs.forEach(d=>{const dt=d.data();if(dt.studentId)evalMap[dt.studentId]=dt;});
+    evalSnap.docs
+      .filter(d=>d.id.startsWith('eval_'))
+      .forEach(d=>{const dt=d.data();if(dt.studentId)evalMap[dt.studentId]=dt;});
     el.innerHTML=stus.map(s=>{
+      const isRated=!!(s.supervisorEval);
+      const isRequested=!!(s.evalRequested);
       const ev=evalMap[s.id];
-      const btn=ev
-        ?'<button class="btn b-v b-sm" data-view-ev-sid="'+s.id+'">عرض التقييم 📋</button>'
-        :'<button class="btn" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;padding:4px 10px;font-size:12px;" data-nfsid="'+fsid+'" data-nsid="'+s.id+'" data-nsn="'+s.name+'" data-nfn="'+(fs?.name||'')+'">⭐ طلب تقييم</button>';
+      let btn;
+      if(isRated&&ev){
+        btn='<button class="btn b-v b-sm" data-view-ev-sid="'+s.id+'">عرض التقييم 📋</button>';
+      } else if(isRated&&!ev){
+        btn='<button class="btn b-v b-sm" disabled>عرض التقييم 📋</button>';
+      } else if(isRequested){
+        btn='<button class="btn b-sm" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;" disabled>⏳ تم إرسال الطلب</button>';
+      } else {
+        btn='<button class="btn" style="background:#FFF3CD;border:1.5px solid #FFE082;color:#856404;padding:4px 10px;font-size:12px;" data-nfsid="'+fsid+'" data-nsid="'+s.id+'" data-nsn="'+s.name+'" data-nfn="'+(fs?.name||'')+'">⭐ طلب تقييم</button>';
+      }
       return '<div style="display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--b);">'
         +'<div class="sav" style="width:34px;height:34px;font-size:13px;">'+(s.name||'?')[0]+'</div>'
         +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+s.name+'</div>'
         +'<div style="font-size:11px;color:var(--m);">'+(s.dept||'—')+'</div></div>'
         +btn+'</div>';
     }).join('');
-    el.querySelectorAll('[data-nfsid]').forEach(b=>b.addEventListener('click',()=>notifyFSup(b.dataset.nfsid,b.dataset.nsid,b.dataset.nsn,b.dataset.nfn)));
+    el.querySelectorAll('[data-nfsid]').forEach(b=>b.addEventListener('click',async()=>{
+      b.disabled=true;b.textContent='...';
+      await notifyFSup(b.dataset.nfsid,b.dataset.nsid,b.dataset.nsn,b.dataset.nfn);
+      b.textContent='⏳ تم إرسال الطلب';b.style.background='#FFF3CD';
+    }));
     el.querySelectorAll('[data-view-ev-sid]').forEach(b=>b.addEventListener('click',async()=>{
       const sid=b.dataset.viewEvSid;
       const ev=evalMap[sid];
@@ -2968,6 +3007,8 @@ async function notifyFSup(fsid,sid,sname,fsname){
   await window.FB.addNotif({to:fsid,type:'eval_request',studentId:sid,studentName:sname,fromName:CU.name,
     msg:'طُلب منك تقييم الطالب: '+sname,requestedAt:new Date().toISOString()});
   await window.FB.updateUser(fsid,{pendingEvals:window.FB.arrayUnion({studentId:sid,studentName:sname,requestedBy:CU.name,requestedAt:new Date().toISOString()})});
+  /* Mark on the student doc that a request was sent — used to show the ⏳ state */
+  await window.FB.updateUser(sid,{evalRequested:true,evalRequestedBy:CU.id,evalRequestedAt:new Date().toISOString()});
   toast('✅ تم إرسال طلب تقييم '+sname+' للمشرف '+fsname);
 }
 
