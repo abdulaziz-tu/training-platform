@@ -549,7 +549,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
     <div id="stu-info-card" class="card" style="margin-bottom:20px;"></div>
     <div id="stu-final-bar" class="fb">
       <div class="fbi"><div class="fbic">📋</div>
-        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي لمشرف التدريب</p></div>
+        <div class="fbt"><h3>التقرير النهائي</h3><p id="stu-fin-desc">أرسل تقريرك النهائي للمرشد الأكاديمي</p></div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span class="fsb fs0" id="st-fs">لم يُرسَل بعد</span>
@@ -644,7 +644,7 @@ tbody td{padding:12px 18px;text-align:right;font-weight:500;vertical-align:middl
       <div class="sc cl" id="sup-ac" onclick="togAdvPan()"><div class="st2"><div class="sl2">التواصل مع المرشدين</div><div class="si2" style="background:#EDE8F8;">💬</div></div><div style="font-size:13px;color:var(--p);font-weight:700;">اضغط للعرض</div></div>
     </div>
     <div class="card" id="adv-pan" style="display:none;">
-      <div class="ch"><div class="ct">المرشدون الأكاديميون</div><button class="tb" onclick="togAdvPan()">−</button></div>
+      <div class="ch"><div class="ct">المرشدين الأكاديميين</div><button class="tb" onclick="togAdvPan()">−</button></div>
       <div id="adv-cl"></div>
     </div>
 
@@ -929,7 +929,7 @@ function updStuFinal(data){
   // Show decline comments
   if((s==='supervisor_declined'||s==='advisor_declined')&&data?.declineComment){
     if(desc)desc.textContent=`تعليق: ${data.declineComment}`;
-  } else {if(desc)desc.textContent='أرسل تقريرك النهائي لمشرف التدريب';}
+  } else {if(desc)desc.textContent='أرسل تقريرك النهائي للمرشد الاكاديمي';}
 }
 
 
@@ -1098,7 +1098,7 @@ async function submitStuFinal(){
       submittedAt:new Date().toISOString()
     });
   }
-  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي لمشرف التدريب');
+  closeM('m-fin');toast('✅ تم إرسال التقرير النهائي للمرشد الأكاديمي');
 }
 
 /* ─────────────── ADVISOR ─────────────── */
